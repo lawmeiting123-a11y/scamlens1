@@ -55,7 +55,20 @@
   .brandIcon svg{width:24px;height:24px;display:block}
   .brandText h1{font-size:17px;font-weight:800;letter-spacing:-.02em;margin:0}
   .brandText p{margin:0;font-size:11px;color:var(--muted);letter-spacing:.02em}
-  main#main-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;position:relative}
+  main#main-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;position:relative;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:rgba(52,211,153,.32) transparent}
+  /* --- themed scrollbars (desktop) --- */
+  main#main-scroll::-webkit-scrollbar{width:6px;height:6px}
+  main#main-scroll::-webkit-scrollbar-track{background:transparent}
+  main#main-scroll::-webkit-scrollbar-thumb{background:rgba(52,211,153,.28);border-radius:999px}
+  main#main-scroll::-webkit-scrollbar-thumb:hover{background:rgba(52,211,153,.5)}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-track{background:#0a1120}
+  ::-webkit-scrollbar-thumb{background:rgba(148,163,184,.28);border-radius:999px}
+  ::-webkit-scrollbar-thumb:hover{background:rgba(52,211,153,.45)}
+  ::selection{background:rgba(16,185,129,.34);color:#fff}
+  body{-webkit-tap-highlight-color:transparent}
+  input,textarea{caret-color:var(--emerald-bright)}
+  input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:#f8fafc;-webkit-box-shadow:0 0 0 1000px #0a1120 inset;transition:background-color 9999s ease-out}
   .screen{display:none;padding:16px;animation:fade .18s ease}
   .screen.active{display:block}
   @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
