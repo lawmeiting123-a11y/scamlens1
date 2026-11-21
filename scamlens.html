@@ -1,0 +1,963 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#070d19">
+<meta name="description" content="ScamLens — AI-assisted anti-scam assistant for Hong Kong mobile users.">
+<title>ScamLens — AI-Assisted Anti-Scam Assistant</title>
+<style>
+  :root{
+    --bg:#070d19; --panel:#162136; --emerald:#10b981; --emerald-bright:#34d399;
+    --emerald-deep:#059669; --cyan:#38bdf8; --danger:#ef4444;
+    --warn:#f59e0b; --text:#f8fafc; --text-soft:#cbd5e1; --muted:#94a3b8;
+    --line:rgba(52,211,153,.22); --line-subtle:rgba(148,163,184,.16);
+    --risk-low:#34d399; --risk-low-bg:rgba(16,185,129,.16);
+    --risk-med:#fbbf24; --risk-med-bg:rgba(245,158,11,.16);
+    --risk-high:#f87171; --risk-high-bg:rgba(239,68,68,.16);
+    --shadow:0 8px 24px rgba(2,6,23,.36);
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"PingFang TC","Noto Sans TC",Helvetica,Arial,sans-serif;
+    font-size:14px;line-height:1.5;color:var(--text);
+    background:
+      radial-gradient(960px 540px at 50% -10%, rgba(16,185,129,.18), transparent 60%),
+      radial-gradient(760px 440px at 8% 32%, rgba(56,189,248,.10), transparent 62%),
+      radial-gradient(640px 420px at 92% 78%, rgba(16,185,129,.08), transparent 60%),
+      var(--bg);
+    -webkit-font-smoothing:antialiased;
+  }
+  .shell{min-height:100%;display:flex;align-items:center;justify-content:center;padding:16px 12px 22px}
+  .phone{
+    width:100%;max-width:430px;height:86dvh;max-height:880px;
+    background:linear-gradient(180deg,rgba(13,21,38,.96),rgba(8,14,27,.99));
+    border:1px solid rgba(52,211,153,.28);border-radius:22px;box-shadow:0 0 28px rgba(16,185,129,.16),0 20px 48px rgba(2,6,23,.72);
+    overflow:hidden;position:relative;display:flex;flex-direction:column;
+  }
+  @media (max-width:440px){
+    .shell{padding:0}
+    .phone{border-radius:0;height:100dvh;max-height:none;border-left:none;border-right:none}
+  }
+  header.appbar{
+    padding:13px 16px 12px;border-bottom:1px solid var(--line);
+    background:linear-gradient(180deg,rgba(15,23,42,.96),rgba(11,18,34,.90));
+    backdrop-filter:blur(12px);flex:0 0 auto;z-index:5;
+  }
+  .brandRow{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  .brandTitle{display:flex;align-items:center;gap:11px;min-width:0}
+  .brandIcon{
+    width:38px;height:38px;border-radius:12px;flex:0 0 auto;display:grid;place-items:center;
+    background:linear-gradient(145deg,rgba(16,185,129,.24),rgba(6,78,59,.55));
+    border:1px solid rgba(52,211,153,.52);box-shadow:0 0 18px rgba(16,185,129,.28),inset 0 1px 0 rgba(255,255,255,.16);
+  }
+  .brandIcon svg{width:24px;height:24px;display:block}
+  .brandText h1{font-size:17px;font-weight:800;letter-spacing:-.02em;margin:0}
+  .brandText p{margin:0;font-size:11px;color:var(--muted);letter-spacing:.02em}
+  main#main-scroll{flex:1 1 auto;overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;position:relative}
+  .screen{display:none;padding:16px;animation:fade .18s ease}
+  .screen.active{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .card{background:var(--panel);border:1px solid var(--line-subtle);border-radius:18px;padding:16px;box-shadow:var(--shadow);margin-bottom:14px}
+  .heroCard{background:linear-gradient(160deg,rgba(22,33,54,.96),rgba(10,17,32,.92));border-color:var(--line)}
+  .stack{display:flex;flex-direction:column}
+  .row{display:flex;align-items:center}
+  .rowBetween{display:flex;align-items:center;justify-content:space-between;gap:10px}
+  .gap6{gap:6px}.gap10{gap:10px}.gap14{gap:14px}
+  .sectionTag{font-size:10.5px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:var(--emerald-bright)}
+  .h2{font-size:19px;font-weight:800;letter-spacing:-.02em;margin:2px 0 0}
+  .h3{font-size:15px;font-weight:700;margin:0}
+  .small{font-size:12.5px}
+  .tiny{font-size:11.5px}
+  .muted{color:var(--muted)}
+  .soft{color:var(--text-soft)}
+  .mt6{margin-top:6px}.mt10{margin-top:10px}.mt14{margin-top:14px}
+  .btn{
+    appearance:none;border:1px solid transparent;border-radius:13px;padding:12px 14px;
+    font-size:14.5px;font-weight:700;font-family:inherit;cursor:pointer;color:#04140d;
+    background:linear-gradient(160deg,var(--emerald-bright),var(--emerald-deep));
+    transition:transform .08s ease,filter .15s ease,opacity .15s ease;min-height:46px;
+  }
+  .btn:active{transform:scale(.985)}
+  .btn:disabled{opacity:.55;cursor:not-allowed}
+  .btnGhost{background:transparent;color:var(--text);border-color:rgba(148,163,184,.34)}
+  .btnDanger{background:transparent;color:#fca5a5;border-color:rgba(239,68,68,.42)}
+  .btnInline{padding:8px 11px;min-height:0;font-size:12.5px;border-radius:11px}
+  .btnWide{width:100%}
+  .list{display:flex;flex-direction:column;gap:10px}
+  input,textarea,select{
+    width:100%;background:rgba(9,15,28,.92);border:1px solid rgba(148,163,184,.26);
+    border-radius:12px;color:var(--text);padding:12px;font-family:inherit;
+    font-size:16px;line-height:1.45;outline:none;transition:border-color .15s,box-shadow .15s;
+  }
+  input:focus,textarea:focus,select:focus{border-color:var(--emerald-bright);box-shadow:0 0 0 3px rgba(16,185,129,.16)}
+  textarea{resize:vertical;min-height:110px}
+  label.fld{display:block;font-size:12px;color:var(--muted);margin:0 0 5px 2px;font-weight:600}
+  .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:rgba(9,15,28,.9);padding:5px;border-radius:13px;border:1px solid var(--line-subtle)}
+  .seg button{
+    appearance:none;border:0;background:transparent;color:var(--muted);font-family:inherit;
+    font-size:12.5px;font-weight:700;padding:9px 4px;border-radius:9px;cursor:pointer;min-height:40px;
+  }
+  .seg button.on{background:rgba(16,185,129,.18);color:var(--emerald-bright);box-shadow:inset 0 0 0 1px rgba(52,211,153,.4)}
+  .statGrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .statBox{background:rgba(9,15,28,.72);border:1px solid var(--line-subtle);border-radius:14px;padding:12px}
+  .statNum{font-size:26px;font-weight:800;letter-spacing:-.02em;line-height:1.1}
+  .riskBarTrack{display:flex;height:12px;border-radius:8px;overflow:hidden;background:rgba(148,163,184,.14);margin-top:8px}
+  .riskSegHigh{background:#ef4444}.riskSegMed{background:#f59e0b}.riskSegLow{background:#10b981}
+  .riskLegend{display:flex;gap:10px;flex-wrap:wrap;margin-top:9px}
+  .legendItem{display:inline-flex;align-items:center;gap:5px;font-size:11px;color:var(--text-soft)}
+  .legendDot{width:8px;height:8px;border-radius:50%;display:inline-block}
+  .badge{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.06em}
+  .badge-low{background:var(--risk-low-bg);color:var(--risk-low)}
+  .badge-med{background:var(--risk-med-bg);color:var(--risk-med)}
+  .badge-high{background:var(--risk-high-bg);color:var(--risk-high)}
+  .scoreTrack{height:10px;border-radius:8px;background:rgba(148,163,184,.14);overflow:hidden;margin-top:10px}
+  .scoreFill{height:100%;width:0;border-radius:8px;background:var(--emerald);transition:width .5s ease,background .3s}
+  .reason{display:flex;gap:9px;padding:11px 0;border-top:1px solid var(--line-subtle)}
+  .reason:first-child{border-top:0}
+  .rIcon{flex:0 0 auto;width:20px;height:20px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:900;margin-top:1px}
+  .rHit{background:rgba(239,68,68,.18);color:#fca5a5}
+  .rOk{background:rgba(16,185,129,.18);color:var(--emerald-bright)}
+  .bdRow{display:flex;justify-content:space-between;gap:10px;font-size:12.5px;padding:6px 0;border-bottom:1px dashed var(--line-subtle)}
+  .bdRow:last-child{border-bottom:0}
+  .panel{display:none;margin-top:10px}
+  .panel.open{display:block}
+  .toastBanner{
+    position:absolute;left:12px;right:12px;bottom:78px;padding:11px 14px;border-radius:13px;
+    font-size:13px;font-weight:600;background:#0f172a;border:1px solid var(--line);
+    box-shadow:0 12px 30px rgba(2,6,23,.6);opacity:0;transform:translateY(8px);
+    pointer-events:none;transition:opacity .2s,transform .2s;z-index:30;
+  }
+  .toastBanner.show{opacity:1;transform:none}
+  .toastBanner.ok{border-color:rgba(52,211,153,.55);color:#a7f3d0}
+  .toastBanner.err{border-color:rgba(239,68,68,.55);color:#fecaca}
+  .toastBanner.warn{border-color:rgba(245,158,11,.55);color:#fde68a}
+  .bottomNav{
+    flex:0 0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:2px;
+    border-top:1px solid var(--line);background:rgba(11,18,34,.96);backdrop-filter:blur(12px);
+    padding:6px 6px calc(6px + env(safe-area-inset-bottom,0px));z-index:20;
+  }
+  .navBtn{
+    appearance:none;background:transparent;border:0;color:var(--muted);font-family:inherit;
+    font-size:10.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;
+    padding:7px 2px;border-radius:11px;cursor:pointer;min-height:48px;
+  }
+  .navBtn .navIcon{font-size:17px;line-height:1}
+  .navBtn.active{color:var(--emerald-bright);background:rgba(16,185,129,.10)}
+  .chipRow{display:flex;gap:8px;flex-wrap:wrap}
+  .chip{
+    appearance:none;font-family:inherit;font-size:12px;font-weight:600;color:var(--text-soft);
+    background:rgba(9,15,28,.85);border:1px solid var(--line-subtle);border-radius:999px;
+    padding:8px 12px;cursor:pointer;min-height:38px;
+  }
+  .chip:active{border-color:var(--emerald-bright)}
+  .overlay{
+    position:absolute;inset:0;background:rgba(3,7,15,.72);backdrop-filter:blur(3px);
+    display:none;align-items:flex-end;z-index:40;
+  }
+  .overlay.show{display:flex}
+  .sheet{width:100%;background:var(--panel);border-top-left-radius:20px;border-top-right-radius:20px;padding:18px 16px calc(18px + env(safe-area-inset-bottom,0px));border-top:1px solid var(--line)}
+  .spinner{width:44px;height:44px;border-radius:50%;border:3px solid rgba(52,211,153,.2);border-top-color:var(--emerald-bright);animation:spin .8s linear infinite;margin:0 auto}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .empty{text-align:center;padding:26px 12px;color:var(--muted)}
+  .empty .big{font-size:30px;margin-bottom:8px}
+  .stepdots{display:flex;gap:6px;justify-content:center;margin-top:16px}
+  .stepdots i{width:7px;height:7px;border-radius:50%;background:rgba(148,163,184,.35)}
+  .stepdots i.on{background:var(--emerald-bright);width:18px;border-radius:4px}
+  .kv{display:flex;justify-content:space-between;gap:12px;font-size:12.5px;padding:5px 0}
+  .kv span:last-child{color:var(--text);font-weight:600;text-align:right}
+  .histItem{display:flex;gap:10px;align-items:center;padding:11px;border-radius:13px;background:rgba(9,15,28,.7);border:1px solid var(--line-subtle);cursor:pointer}
+  .histItem:active{border-color:var(--emerald-bright)}
+  .histScore{flex:0 0 auto;width:44px;height:44px;border-radius:12px;display:grid;place-items:center;font-weight:800;font-size:15px}
+  canvas#trend{width:100%;height:86px;display:block}
+  .disclaimer{font-size:10.5px;color:#7c8aa1;line-height:1.5}
+  .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+</style>
+</head>
+<body>
+<div class="shell"><div class="phone">
+  <header class="appbar">
+    <div class="brandRow">
+      <div class="brandTitle">
+        <div class="brandIcon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M24 5l15 6v11c0 11-6.6 17.8-15 21-8.4-3.2-15-10-15-21V11l15-6z" stroke="#34d399" stroke-width="2.4" fill="rgba(16,185,129,0.16)" />
+            <path d="M17.5 24.5l4.4 4.4 8.6-9.4" stroke="#a7f3d0" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" />
+          </svg>
+        </div>
+        <div class="brandText">
+          <h1>ScamLens</h1>
+          <p>AI-assisted anti-scam · Hong Kong</p>
+        </div>
+      </div>
+      <button class="btn btnGhost btnInline" id="btn-signout" onclick="logoutSession()" style="display:none">Sign out</button>
+    </div>
+  </header>
+
+  <main id="main-scroll">
+
+    <!-- ============ LOGIN ============ -->
+    <section id="screen-login" class="screen active">
+      <div class="card heroCard stack gap14">
+        <div><span class="sectionTag">Welcome</span><h2 class="h2">Check a message before you click.</h2></div>
+        <p class="small soft" style="margin:0">Paste a suspicious SMS, link or phone number. ScamLens scores the risk and explains <em>why</em> in plain language.</p>
+        <div class="seg" role="tablist" aria-label="Auth mode">
+          <button id="tab-signin" class="on" onclick="setAuthMode('signin')">Sign in</button>
+          <button id="tab-signup" onclick="setAuthMode('signup')">Create account</button>
+        </div>
+        <form onsubmit="handleAuthSubmit(event)" novalidate>
+          <label class="fld" for="login-email">Email</label>
+          <input id="login-email" type="email" autocomplete="username" placeholder="you@example.com">
+          <label class="fld" for="login-password" style="margin-top:10px">Password</label>
+          <input id="login-password" type="password" autocomplete="current-password" placeholder="••••••">
+          <div id="signup-confirm-wrap" style="display:none">
+            <label class="fld" for="signup-confirm" style="margin-top:10px">Confirm password</label>
+            <input id="signup-confirm" type="password" autocomplete="new-password" placeholder="••••••">
+          </div>
+          <div id="login-error" class="tiny" style="display:none;color:#fca5a5;margin-top:10px" role="alert"></div>
+          <button class="btn btnWide mt14" type="submit" id="btn-login">Sign in</button>
+        </form>
+        <button class="btn btnGhost btnWide" onclick="continueAsGuest()">Continue as Guest</button>
+        <p class="tiny muted" style="margin:0">Demo account: <b>demo@scamlens.hk</b> / <b>1234</b> · Demo only, no real authentication.</p>
+      </div>
+      <p class="disclaimer">Prototype for IS2023 coursework. For educational use only — not legal advice, and it does not guarantee detection of every scam.</p>
+    </section>
+
+    <!-- ============ ONBOARDING ============ -->
+    <section id="screen-onboarding" class="screen">
+      <div class="card heroCard stack gap14" id="ob-card">
+        <div id="ob-body"></div>
+        <div class="stepdots" id="ob-dots"><i class="on"></i><i></i><i></i></div>
+        <div class="row gap10">
+          <button class="btn btnGhost" style="flex:1" onclick="obPrev()" id="ob-back">Back</button>
+          <button class="btn" style="flex:1.4" onclick="obNext()" id="ob-next">Next</button>
+        </div>
+        <button class="btn btnGhost btnWide" onclick="finishOnboarding()">Skip</button>
+      </div>
+    </section>
+
+    <!-- ============ HOME ============ -->
+    <section id="screen-home" class="screen">
+      <div class="card heroCard stack gap14">
+        <div class="rowBetween" style="align-items:flex-start">
+          <div><span class="sectionTag">Protection Hub</span><h2 class="h2">Security Summary</h2>
+            <div class="tiny muted" id="session-status" style="margin-top:4px">Signed in</div></div>
+          <button class="btn btnGhost btnInline" onclick="goScreen('onboarding')">Guide</button>
+        </div>
+        <div class="statGrid">
+          <div class="statBox"><div class="tiny muted">Total checks</div><div class="statNum" id="stat-total">0</div></div>
+          <div class="statBox"><div class="tiny muted">High-risk caught</div><div class="statNum" id="stat-high" style="color:var(--risk-high)">0</div></div>
+        </div>
+        <div>
+          <div class="rowBetween"><span class="tiny" style="font-weight:700">Risk distribution</span>
+            <span class="tiny muted" id="risk-summary">No scans yet</span></div>
+          <div class="riskBarTrack" role="img" aria-label="High, medium and low risk distribution">
+            <div class="riskSegHigh" id="bar-high" style="width:0%"></div>
+            <div class="riskSegMed" id="bar-med" style="width:0%"></div>
+            <div class="riskSegLow" id="bar-low" style="width:100%"></div>
+          </div>
+          <div class="riskLegend">
+            <span class="legendItem"><span class="legendDot" style="background:#ef4444"></span><span id="legend-high">High: 0</span></span>
+            <span class="legendItem"><span class="legendDot" style="background:#f59e0b"></span><span id="legend-med">Med: 0</span></span>
+            <span class="legendItem"><span class="legendDot" style="background:#10b981"></span><span id="legend-low">Low: 0</span></span>
+          </div>
+        </div>
+        <button class="btn btnWide" onclick="goScreen('scan')">+ New scam check</button>
+      </div>
+
+      <div class="card stack gap10">
+        <div class="rowBetween"><span class="sectionTag">Last 7 days</span><span class="tiny muted">checks</span></div>
+        <canvas id="trend" width="320" height="86" aria-label="Chart: number of checks in the last seven days"></canvas>
+      </div>
+
+      <div class="card stack gap10">
+        <div class="rowBetween"><span class="sectionTag">HK Scam Alerts</span><span class="tiny muted">ADCC</span></div>
+        <div class="tiny soft">⚠️ 假冒順豐／郵政：包裹被扣要求付「手續費」— 官方不會用短訊收費。</div>
+        <div class="tiny soft">⚠️ 假冒入境處／海關：要求提供 HKID 及一次性驗證碼。</div>
+        <div class="tiny soft">⚠️ 刷單兼職／投資群組：「穩賺不賠」＝騙局。</div>
+        <div class="tiny soft">⚠️ 假冒銀行：聲稱帳戶將被凍結，附上非官方連結。</div>
+      </div>
+
+      <div class="card stack gap10">
+        <span class="sectionTag">About &amp; AI disclosure</span>
+        <p class="tiny soft" style="margin:0">ScamLens uses an <b>on-device rule engine</b> (works offline, keeps your messages on your phone) plus an <b>optional LLM explanation layer</b> when a network is available. No message content is sent to any server in this prototype.</p>
+        <p class="disclaimer" style="margin:0">Prototype for IS2023 · City University of Hong Kong. Educational use only; no guarantee of 100% detection. Do not rely on this app as your only defence.</p>
+      </div>
+    </section>
+
+    <!-- ============ SCAN ============ -->
+    <section id="screen-scan" class="screen">
+      <div class="card stack gap14">
+        <div><span class="sectionTag">New check</span><h2 class="h2">What did you receive?</h2></div>
+        <div class="seg" role="tablist" aria-label="Scan mode">
+          <button id="mode-text" class="on" onclick="setScanMode('text')">Message</button>
+          <button id="mode-url" onclick="setScanMode('url')">Link</button>
+          <button id="mode-phone" onclick="setScanMode('phone')">Phone</button>
+        </div>
+
+        <div id="input-text-wrap">
+          <label class="fld" for="scan-input">Suspicious message</label>
+          <textarea id="scan-input" maxlength="500" placeholder="Paste the SMS / WhatsApp message here…" oninput="updateCharCounter(); hideScanAlert()"></textarea>
+          <div class="rowBetween" style="margin-top:6px">
+            <span class="tiny muted" id="scan-char-count">0 / 500</span>
+            <div class="row gap6">
+              <button class="btn btnGhost btnInline" onclick="pasteFromClipboard()">Paste</button>
+              <button class="btn btnGhost btnInline" onclick="clearScanInput()">Clear</button>
+            </div>
+          </div>
+          <div class="mt10">
+            <label class="btn btnGhost btnInline" style="display:inline-flex;cursor:pointer;align-items:center;gap:7px">
+              📷 Upload screenshot
+              <input type="file" accept="image/*" id="shot-input" onchange="handleScreenshot(this)" style="position:absolute;width:1px;height:1px;opacity:0">
+            </label>
+            <span class="tiny muted" style="margin-left:8px">demo OCR</span>
+          </div>
+          <img id="shot-preview" alt="Preview of the uploaded screenshot" style="display:none;max-width:100%;border-radius:12px;margin-top:10px;border:1px solid var(--line-subtle)">
+        </div>
+
+        <div id="input-url-wrap" style="display:none">
+          <label class="fld" for="scan-url">Suspicious link</label>
+          <input id="scan-url" type="url" inputmode="url" placeholder="http://example-verify.top/login">
+        </div>
+
+        <div id="input-phone-wrap" style="display:none">
+          <label class="fld" for="scan-phone">Caller / sender number</label>
+          <input id="scan-phone" type="tel" inputmode="tel" placeholder="+852 1234 5678">
+          <p class="tiny muted mt6" style="margin-bottom:0">Demo lookup against a small sample of reported patterns.</p>
+        </div>
+
+        <label class="fld" for="scan-channel">Channel</label>
+        <select id="scan-channel">
+          <option>SMS / Text</option>
+          <option>WhatsApp / Instant chat</option>
+          <option>Email</option>
+          <option>Social media</option>
+          <option>Phone call</option>
+        </select>
+
+        <div id="scan-alert" class="tiny" style="display:none" role="alert"></div>
+
+        <button class="btn btnWide" id="btn-analyze" onclick="runAnalysis()">Analyse risk</button>
+
+        <div>
+          <span class="tiny muted">Try a sample:</span>
+          <div class="chipRow mt6">
+            <button class="chip" onclick="loadPreset('sms')">Courier fee SMS</button>
+            <button class="chip" onclick="loadPreset('bank')">Bank alert</button>
+            <button class="chip" onclick="loadPreset('job')">Part-time job</button>
+            <button class="chip" onclick="loadPreset('safe')">Legit message</button>
+          </div>
+        </div>
+      </div>
+      <p class="disclaimer">Your messages are processed on your device only. Do not enter real passwords, OTPs or full HKID numbers.</p>
+    </section>
+
+    <!-- ============ ANALYZING ============ -->
+    <section id="screen-analyzing" class="screen">
+      <div class="card heroCard stack gap14" style="text-align:center;padding:34px 18px">
+        <div class="spinner" aria-hidden="true"></div>
+        <div><h2 class="h2" id="analyzing-title">Analysing…</h2>
+          <p class="tiny muted" id="analyzing-sub" style="margin:6px 0 0">Checking links, urgency and credential requests</p></div>
+        <div class="statBox" style="text-align:left"><div class="tiny muted">Preview</div>
+          <div class="tiny soft" id="analyzing-preview" style="margin-top:4px;max-height:120px;overflow:hidden"></div></div>
+      </div>
+    </section>
+
+    <!-- ============ RESULT ============ -->
+    <section id="screen-result" class="screen">
+      <div class="card heroCard stack gap14" id="result-card">
+        <div class="rowBetween">
+          <span class="badge badge-low" id="res-badge">NO SCAN YET</span>
+          <span class="tiny muted" id="res-meta">—</span>
+        </div>
+        <div>
+          <div class="rowBetween"><h2 class="h2" id="res-title">No scan result yet</h2>
+            <span class="tiny" style="font-weight:800" id="res-score">—/100</span></div>
+          <div class="scoreTrack" role="img" aria-label="Risk score bar"><div class="scoreFill" id="res-score-bar"></div></div>
+        </div>
+        <div class="tiny muted" id="res-original" style="word-break:break-word">Start a new scan to see the message and the reasons behind the score.</div>
+
+        <div id="res-breakdown-card">
+          <button class="btn btnGhost btnWide btnInline" onclick="toggleBreakdown()" aria-expanded="false">
+            <span id="res-breakdown-toggle">Show score breakdown ▾</span>
+          </button>
+          <div class="panel" id="res-breakdown-panel"><div id="res-breakdown"></div></div>
+        </div>
+
+        <div>
+          <span class="sectionTag">Why this score</span>
+          <div id="res-reasons" class="mt6"></div>
+        </div>
+
+        <div id="res-advice"></div>
+
+        <div class="row gap10">
+          <button class="btn btnGhost" style="flex:1" onclick="goScreen('history')">History</button>
+          <button class="btn" style="flex:1.2" onclick="goScreen('scan')">New check</button>
+        </div>
+      </div>
+      <p class="disclaimer">Risk score is heuristic and for guidance only. Always verify through official channels.</p>
+    </section>
+
+    <!-- ============ HISTORY ============ -->
+    <section id="screen-history" class="screen">
+      <div class="card stack gap10">
+        <div class="rowBetween"><span class="sectionTag">Scan history</span>
+          <button class="btn btnDanger btnInline" id="btn-clear-all" onclick="requestClearHistory()">Clear all</button></div>
+        <input id="history-search" type="search" placeholder="Search message text or channel…" oninput="renderHistory()">
+        <div class="seg" role="tablist" aria-label="Filter">
+          <button id="flt-ALL" class="on" onclick="setFilter('ALL')">All</button>
+          <button id="flt-HIGH" onclick="setFilter('HIGH')">High</button>
+          <button id="flt-LOW" onclick="setFilter('LOW')">Low</button>
+        </div>
+        <div id="history-list" class="list"></div>
+      </div>
+    </section>
+
+  </main>
+
+  <div id="toast-banner" class="toastBanner" role="status" aria-live="polite"></div>
+
+  <nav class="bottomNav" id="bottom-nav" style="display:none" aria-label="Main navigation">
+    <button class="navBtn active" id="nav-home" onclick="goScreen('home')"><span class="navIcon">🏠</span><span>Home</span></button>
+    <button class="navBtn" id="nav-scan" onclick="goScreen('scan')"><span class="navIcon">🔍</span><span>Scan</span></button>
+    <button class="navBtn" id="nav-result" onclick="goScreen('result')"><span class="navIcon">🛡️</span><span>Result</span></button>
+    <button class="navBtn" id="nav-history" onclick="goScreen('history')"><span class="navIcon">📋</span><span>History</span></button>
+  </nav>
+
+  <div class="overlay" id="confirm-overlay">
+    <div class="sheet stack gap14">
+      <div><h3 class="h3" id="confirm-title">Are you sure?</h3>
+        <p class="small muted" id="confirm-text" style="margin:6px 0 0"></p></div>
+      <div class="row gap10">
+        <button class="btn btnGhost" style="flex:1" onclick="closeConfirm()">Cancel</button>
+        <button class="btn btnDanger" style="flex:1" id="confirm-ok">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div></div>
+
+<script>
+/* ============ storage ============ */
+const STORAGE_KEY='scamlens_history_v1';
+const AUTH_KEY='scamlens_auth_session_v1';
+const USERS_KEY='scamlens_demo_users_v1';
+const OB_KEY='scamlens_onboarded_v1';
+const memoryFallback={};
+function safeGet(k){try{return window.localStorage.getItem(k);}catch(e){return Object.prototype.hasOwnProperty.call(memoryFallback,k)?memoryFallback[k]:null;}}
+function safeSet(k,v){try{window.localStorage.setItem(k,v);}catch(e){memoryFallback[k]=v;}}
+function safeDel(k){try{window.localStorage.removeItem(k);}catch(e){delete memoryFallback[k];}}
+
+/* ============ seed demo user ============ */
+function getUsers(){
+  let raw=safeGet(USERS_KEY), u=null;
+  try{u=raw?JSON.parse(raw):null;}catch(e){u=null;}
+  if(!u||typeof u!=='object') u={};
+  if(!u['demo@scamlens.hk']){
+    u['demo@scamlens.hk']={email:'demo@scamlens.hk',password:'1234',createdAt:new Date().toISOString()};
+    safeSet(USERS_KEY,JSON.stringify(u));
+  }
+  return u;
+}
+
+/* ============ toast ============ */
+let toastTimer=null;
+function showToast(msg,type){
+  const el=document.getElementById('toast-banner');
+  el.textContent=msg; el.className='toastBanner show '+(type||'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(function(){el.className='toastBanner';},2200);
+}
+
+/* ============ screens ============ */
+const SCREENS=['login','onboarding','home','scan','analyzing','result','history'];
+const NAV_MAP={home:'nav-home',scan:'nav-scan',result:'nav-result',history:'nav-history'};
+function goScreen(name){
+  SCREENS.forEach(function(s){
+    const el=document.getElementById('screen-'+s);
+    if(el) el.classList.toggle('active',s===name);
+  });
+  const main=document.getElementById('main-scroll'); if(main) main.scrollTop=0;
+  Object.keys(NAV_MAP).forEach(function(k){
+    const b=document.getElementById(NAV_MAP[k]);
+    if(b) b.classList.toggle('active',k===name);
+  });
+  document.getElementById('bottom-nav').style.display=(name==='login')?'none':'grid';
+  document.getElementById('btn-signout').style.display=(name==='login')?'none':'inline-flex';
+  if(name==='home'){ updateStats(); drawTrend(); }
+  if(name==='history'){ renderHistory(); }
+  if(name==='result'){ syncResultOnOpen(); }
+}
+
+/* ============ auth ============ */
+let authMode='signin';
+function setAuthMode(mode){
+  authMode=mode;
+  document.getElementById('tab-signin').classList.toggle('on',mode==='signin');
+  document.getElementById('tab-signup').classList.toggle('on',mode==='signup');
+  document.getElementById('signup-confirm-wrap').style.display=(mode==='signup')?'block':'none';
+  document.getElementById('btn-login').textContent=(mode==='signup')?'Create account':'Sign in';
+  clearAuthError();
+}
+function showAuthError(msg){
+  const el=document.getElementById('login-error');
+  el.textContent=msg; el.style.display='block';
+}
+function clearAuthError(){ document.getElementById('login-error').style.display='none'; }
+
+function handleAuthSubmit(ev){
+  if(ev) ev.preventDefault();
+  const emailEl=document.getElementById('login-email');
+  const passEl=document.getElementById('login-password');
+  const confEl=document.getElementById('signup-confirm');
+  const email=(emailEl.value||'').trim().toLowerCase();
+  const password=(passEl.value||'');
+  if(!email||!password){ showAuthError('Please enter both email and password, or continue as Guest.'); return; }
+
+  const users=getUsers();
+  if(authMode==='signup'){
+    const conf=(confEl.value||'');
+    if(password.length<4){ showAuthError('Password must be at least 4 characters.'); return; }
+    if(password!==conf){ showAuthError('Passwords do not match.'); return; }
+    if(users[email]){ showAuthError('This email already has an account — try signing in.'); return; }
+    users[email]={email:email,password:password,createdAt:new Date().toISOString()};
+    safeSet(USERS_KEY,JSON.stringify(users));
+    setSession({mode:'user',email:email});
+    clearAuthError(); confEl.value='';
+    updateSessionLabel(); goScreen('home'); showToast('Account created — signed in','ok');
+    return;
+  }
+  const u=users[email];
+  if(!u||u.password!==password){ showAuthError('Wrong email or password. Try the demo account or Guest Mode.'); return; }
+  setSession({mode:'user',email:email});
+  clearAuthError(); updateSessionLabel(); goScreen('home'); showToast('Signed in','ok');
+}
+function continueAsGuest(){
+  setSession({mode:'guest',email:null});
+  clearAuthError(); updateSessionLabel(); goScreen('home'); showToast('Guest mode active','ok');
+}
+function logoutSession(){ safeDel(AUTH_KEY); document.getElementById('btn-signout').style.display='none'; goScreen('login'); }
+function setSession(s){ s.loggedInAt=new Date().toISOString(); safeSet(AUTH_KEY,JSON.stringify(s)); }
+function getSession(){ try{return JSON.parse(safeGet(AUTH_KEY));}catch(e){return null;} }
+function updateSessionLabel(){
+  const el=document.getElementById('session-status'); if(!el) return;
+  const s=getSession();
+  el.textContent = s? (s.mode==='guest'?'Guest mode':'Signed in · '+s.email) : 'Not signed in';
+}
+
+/* ============ onboarding ============ */
+const OB_STEPS=[
+  {t:'Welcome to ScamLens',b:'Check suspicious SMS, links or phone numbers before you click. A risk score plus a plain-language explanation — not just “risky”.'},
+  {t:'Your privacy comes first',b:'Your messages are analysed on your device. Nothing is uploaded in this prototype. Avoid entering real OTPs or full HKID numbers.'},
+  {t:'How to use it',b:'Choose Message / Link / Phone, paste the content (or upload a screenshot), and tap “Analyse risk”. Save results to History for later.'}
+];
+let obIndex=0;
+function renderOnboarding(){
+  const s=OB_STEPS[obIndex];
+  document.getElementById('ob-body').innerHTML='<span class="sectionTag">Step '+(obIndex+1)+' / 3</span><h2 class="h2">'+s.t+'</h2><p class="small soft" style="margin:10px 0 0">'+s.b+'</p>';
+  const dots=document.getElementById('ob-dots').children;
+  for(let i=0;i<dots.length;i++) dots[i].className=(i===obIndex?'on':'');
+  document.getElementById('ob-back').disabled=(obIndex===0);
+  document.getElementById('ob-next').textContent=(obIndex===OB_STEPS.length-1)?'Get started':'Next';
+}
+function obNext(){ if(obIndex<OB_STEPS.length-1){ obIndex++; renderOnboarding(); } else { finishOnboarding(); } }
+function obPrev(){ if(obIndex>0){ obIndex--; renderOnboarding(); } }
+function finishOnboarding(){ safeSet(OB_KEY,'1'); goScreen('home'); }
+
+/* ============ scan modes ============ */
+let scanMode='text';
+function setScanMode(m){
+  scanMode=m;
+  ['text','url','phone'].forEach(function(k){
+    document.getElementById('mode-'+k).classList.toggle('on',k===m);
+    document.getElementById('input-'+k+'-wrap').style.display=(k===m)?'block':'none';
+  });
+  hideScanAlert();
+}
+function updateCharCounter(){
+  const el=document.getElementById('scan-input'); const c=document.getElementById('scan-char-count');
+  if(el&&c) c.textContent=(el.value.trim().length)+' / 500';
+}
+function clearScanInput(){
+  document.getElementById('scan-input').value='';
+  document.getElementById('scan-url').value='';
+  document.getElementById('scan-phone').value='';
+  const p=document.getElementById('shot-preview'); if(p){p.style.display='none';p.removeAttribute('src');}
+  updateCharCounter(); hideScanAlert();
+}
+function showScanAlert(msg,type){
+  const el=document.getElementById('scan-alert');
+  el.textContent=msg; el.style.display='block';
+  el.style.color = type==='error' ? '#fca5a5' : (type==='warn'?'#fde68a':'#a7f3d0');
+}
+function hideScanAlert(){ const el=document.getElementById('scan-alert'); el.style.display='none'; }
+
+async function pasteFromClipboard(){
+  try{
+    const txt=await navigator.clipboard.readText();
+    if(!txt){ showScanAlert('Clipboard is empty.','warn'); return; }
+    document.getElementById('scan-input').value=txt.slice(0,500);
+    updateCharCounter(); showToast('Pasted from clipboard','ok');
+  }catch(e){
+    showScanAlert('Clipboard access was blocked. Paste manually (long-press → Paste).','warn');
+  }
+}
+let demoOCRText='[SF Express] 您的包裹因地址無效被退回，請於12小時內點擊連結支付 HK$4.50 手續費: http://sf-hk-pay.top';
+function handleScreenshot(input){
+  const f=input.files&&input.files[0]; if(!f) return;
+  try{
+    const url=URL.createObjectURL(f);
+    const img=document.getElementById('shot-preview');
+    img.src=url; img.style.display='block';
+  }catch(e){}
+  setScanMode('text');
+  document.getElementById('scan-input').value=demoOCRText;
+  updateCharCounter();
+  showToast('Screenshot loaded · text extracted (demo OCR)','ok');
+}
+
+/* ============ presets ============ */
+const PRESETS={
+  sms:{mode:'text',ch:'SMS / Text',text:'[SF Express] 您的包裹因地址無效被退回，請於12小時內點擊連結支付 HK$4.50 手續費: http://sf-hk-pay.top'},
+  bank:{mode:'text',ch:'WhatsApp / Instant chat',text:'HSBC Security Alert: unusual login detected. Your e-Banking will be suspended in 2 hours. Verify now at http://hsbc-hk-verify.top and enter your OTP.'},
+  job:{mode:'text',ch:'WhatsApp / Instant chat',text:'兼職刷單，日賺$800，無需經驗，先墊付小額貨款即退回，穩賺不賠，加我私聊。'},
+  safe:{mode:'text',ch:'SMS / Text',text:'HSBC: Your scheduled transfer of HK$200 to CHAN TAI MAN was completed on 12 Oct. No action needed. Hotline 2233 3000.'}
+};
+function loadPreset(key){
+  const p=PRESETS[key]; if(!p) return;
+  setScanMode(p.mode);
+  document.getElementById('scan-input').value=p.text;
+  document.getElementById('scan-channel').value=p.ch;
+  updateCharCounter(); hideScanAlert(); showToast('Sample loaded','ok');
+}
+
+/* ============ URL risk ============ */
+const OFFICIAL=['hsbc.com.hk','hangseng.com','boc.com.hk','sc.com','sf-express.com','gov.hk','police.gov.hk','ird.gov.hk','customs.gov.hk','immd.gov.hk','hkma.gov.hk'];
+const SUSPICIOUS_TLD=['top','xyz','club','icu','buzz','cyou','shop','vip','live','online'];
+const SHORTENERS=['bit.ly','tinyurl.com','t.co','goo.gl','is.gd','ow.ly','cutt.ly'];
+function urlRisk(raw){
+  const flags=[]; let u=(raw||'').toLowerCase().trim();
+  let host='';
+  const m=u.match(/^https?:\/\/([^\/?#]+)/);
+  if(m) host=m[1]; else if(/^[a-z0-9.-]+\.[a-z]{2,}/.test(u)) host=u.split('/')[0];
+  if(!host) return {flags:['Could not parse a web address from this input.'],host:''};
+  if(u.indexOf('http://')===0) flags.push('Not encrypted (http://) — legitimate banks and government sites use https.');
+  const tld=host.split('.').pop();
+  if(SUSPICIOUS_TLD.indexOf(tld)>=0) flags.push('Low-reputation domain ending (.'+tld+') often used for disposable phishing sites.');
+  if(SHORTENERS.some(function(s){return host.indexOf(s)>=0;})) flags.push('Shortened link hides the real destination.');
+  OFFICIAL.forEach(function(d){
+    const brand=d.split('.')[0];
+    if(host.indexOf(brand)>=0 && host!==d && host.indexOf(d)<0) flags.push('Look-alike of the official domain "'+d+'".');
+  });
+  if(host.split('-').length>=3) flags.push('Domain contains many hyphens — typical of phishing hostnames.');
+  if(/\d{2,}/.test(host)) flags.push('Domain contains number sequences often seen in fake domains.');
+  if(/verify|secure|login|update|account|pay|refund/.test(host)) flags.push('Domain uses urgency words like "verify", "secure" or "pay".');
+  return {flags:flags,host:host};
+}
+
+/* ============ phone risk ============ */
+function phoneRisk(raw){
+  const v=(raw||'').replace(/[\s\-()]/g,''); const flags=[]; let score=10;
+  if(!/^\+?\d{6,15}$/.test(v)) return {flags:['This does not look like a valid phone number.'],score:5,level:'LOW'};
+  const local=v.replace(/^\+852/,'');
+  if(local.length!==8){ flags.push('A Hong Kong number should have 8 digits after +852.'); score+=15; }
+  if(/^\+?0/.test(v)&&!/^\+852/.test(v)){ flags.push('Unusual international format for a local sender.'); score+=10; }
+  if(/(\d)\1{4,}/.test(v)){ flags.push('Long repeated digits — uncommon for legitimate call centres.'); score+=20; }
+  if(/^\d{6,8}$/.test(local)&&local.length<8){ flags.push('Too short to be a normal HK landline or mobile.'); score+=15; }
+  if(!flags.length) flags.push('Format looks normal, but a phone number alone cannot prove legitimacy — never share OTPs.');
+  score=Math.min(score,95);
+  return {flags:flags,score:score,level:score>=70?'HIGH':(score>=40?'MEDIUM':'LOW'),host:local};
+}
+
+/* ============ text analysis ============ */
+function analyzeText(text){
+  const t=(text||'').toLowerCase();
+  let score=10; const reasons=[]; const bd=[]; const hits=[];
+  function add(pts,label,note){ if(pts>0){ score+=pts; bd.push({label:label,pts:pts}); hits.push(label); } else { bd.push({label:label,pts:0,miss:true}); } }
+
+  const urlHit=/https?:\/\/|bit\.ly|tinyurl|\.top\b|\.xyz\b|\.club\b|[-.]verify|[-.]secure|[-.]pay/.test(t);
+  add(urlHit?32:0,'Suspicious URL / domain','+32');
+
+  const urgency=/urgent|immediately|within \d+ hours?|suspended|locked|last warning|final notice|expire/.test(t)||/(立即|馬上|限时|限時|逾時|过期|過期|停用|冻结|凍結|24小時|12小時)/.test(text);
+  add(urgency?20:0,'High-pressure urgency','+20');
+
+  const cred=/otp|one[- ]?time|hkid|password|pin\b|credit card|cvv|security code|verify your account|fps|transfer|pay hk\$|手续费|手續費|驗證碼|验证码|動態密碼|动态密码|密碼|密码|轉帳|转账|匯款|汇款|身份證|身份证/.test(t);
+  add(cred?24:0,'Credential / payment request','+24');
+
+  const cjk=/(順豐|顺丰|郵政|邮政|匯豐|汇丰|恒生|中銀|中银|海關|海关|入境處|入境处|警務處|警务处|稅務局|税务局|快遞|快递|包裹|退款|中獎|中奖|刷單|刷单|兼職|兼职|投資群|投资群|穩賺|稳赚|加我|私聊|點擊|点击|連結|链接)/.test(text);
+  add(cjk?26:0,'Chinese-language scam wording','+26');
+
+  const brand=/sf express|hsbc|hang seng|boc\b|gov\b|police|customs|ird\b|immigration|順豐|匯豐|恒生|入境處|海關/.test(t);
+  add(brand?12:0,'Brand / institution impersonation','+12');
+
+  score=Math.max(5,Math.min(score,98));
+  const level=score>=70?'HIGH':(score>=40?'MEDIUM':'LOW');
+  bd.unshift({label:'Base score',pts:10});
+  return {score:score,level:level,breakdown:bd,hits:hits,text:text};
+}
+
+/* ============ run ============ */
+let latestResult=null, analysisTimer=null;
+function runAnalysis(){
+  hideScanAlert();
+  let payload='', channel=document.getElementById('scan-channel').value;
+  if(scanMode==='url'){ payload=(document.getElementById('scan-url').value||'').trim(); }
+  else if(scanMode==='phone'){ payload=(document.getElementById('scan-phone').value||'').trim(); }
+  else { payload=(document.getElementById('scan-input').value||'').trim(); }
+
+  if(!payload){ showScanAlert('Please enter something to analyse first.','error'); return; }
+  if(scanMode==='text' && payload.length<5){ showScanAlert('That is very short — results may be limited. Add more of the message.','warn'); return; }
+  if(scanMode==='text' && payload.length>500){ showScanAlert('Message too long (max 500 characters).','error'); return; }
+
+  startScan(payload,channel,scanMode);
+}
+function startScan(payload,channel,mode){
+  const btn=document.getElementById('btn-analyze'); if(btn) btn.disabled=true;
+  document.getElementById('analyzing-title').textContent='Analysing…';
+  document.getElementById('analyzing-sub').textContent =
+    mode==='url'?'Checking domain, encryption and look-alike patterns':
+    mode==='phone'?'Checking number format and reported patterns':
+    'Checking links, urgency and credential requests';
+  document.getElementById('analyzing-preview').textContent=payload;
+  goScreen('analyzing');
+
+  if(analysisTimer) clearTimeout(analysisTimer);
+  analysisTimer=setTimeout(function(){
+    let result;
+    try{
+      if(mode==='url'){
+        const r=urlRisk(payload);
+        const score=Math.min(95, 20 + r.flags.length*18 + (/http:\/\//.test(payload)?15:0));
+        result={score:score,level:score>=70?'HIGH':(score>=40?'MEDIUM':'LOW'),breakdown:[{label:'Base score',pts:20},{label:'Domain risk flags',pts:r.flags.length*18},{label:'Plain HTTP penalty',pts:/http:\/\//.test(payload)?15:0}],hits:r.flags,text:payload,host:r.host};
+      } else if(mode==='phone'){
+        const r=phoneRisk(payload);
+        result={score:r.score,level:r.level,breakdown:[{label:'Format check base',pts:10},{label:'Risk flags',pts:Math.max(0,r.score-10)}],hits:r.flags,text:payload};
+      } else {
+        const r=analyzeText(payload);
+        result={score:r.score,level:r.level,breakdown:r.breakdown,hits:r.hits,text:payload};
+      }
+    }catch(err){
+      if(btn) btn.disabled=false;
+      goScreen('scan'); showScanAlert('Something went wrong while analysing. Please try again.','error');
+      analysisTimer=null; return;
+    }
+    result.id='s'+Date.now();
+    result.channel=channel; result.mode=mode; result.createdAt=new Date().toISOString();
+    latestResult=result;
+
+    const list=getHistory(); list.unshift(result); saveHistory(list);
+
+    renderResult(result);
+    if(btn) btn.disabled=false;
+    goScreen('result');
+    showToast('Scan complete — saved to History','ok');
+    if(result.level==='HIGH' && navigator.vibrate){ try{navigator.vibrate([120,60,120]);}catch(e){} }
+    if(mode==='text' && result.score<20 && !result.hits.length){ /* nothing */ }
+    analysisTimer=null;
+  },950);
+}
+
+/* ============ history ============ */
+function getHistory(){ try{return JSON.parse(safeGet(STORAGE_KEY))||[];}catch(e){return [];} }
+function saveHistory(l){ safeSet(STORAGE_KEY,JSON.stringify(l.slice(0,200))); }
+
+let currentFilter='ALL';
+function setFilter(f){
+  currentFilter=f;
+  ['ALL','HIGH','LOW'].forEach(function(k){ document.getElementById('flt-'+k).classList.toggle('on',k===f); });
+  renderHistory();
+}
+function renderHistory(){
+  const wrap=document.getElementById('history-list');
+  const q=((document.getElementById('history-search')||{}).value||'').trim().toLowerCase();
+  let list=getHistory();
+  if(currentFilter!=='ALL') list=list.filter(function(x){ return x.level===currentFilter; });
+  if(q) list=list.filter(function(x){ return (x.text||'').toLowerCase().indexOf(q)>=0 || (x.channel||'').toLowerCase().indexOf(q)>=0; });
+  if(!list.length){
+    wrap.innerHTML='<div class="empty"><div class="big">🗂️</div><div class="small">No scans yet.</div>'+
+      '<button class="btn btnGhost btnInline mt10" onclick="goScreen(\'scan\')">Run your first check</button></div>';
+    return;
+  }
+  const colors={HIGH:'#f87171',MEDIUM:'#fbbf24',LOW:'#34d399'};
+  const bgs={HIGH:'rgba(239,68,68,.16)',MEDIUM:'rgba(245,158,11,.16)',LOW:'rgba(16,185,129,.16)'};
+  wrap.innerHTML=list.map(function(x){
+    const lv=x.level||'LOW';
+    const preview=(x.text||'').slice(0,58)+((x.text||'').length>58?'…':'');
+    return '<div class="histItem" onclick="viewRecord(\''+x.id+'\')">'+
+      '<div class="histScore" style="background:'+bgs[lv]+';color:'+colors[lv]+'">'+x.score+'</div>'+
+      '<div style="min-width:0;flex:1"><div class="small" style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+escapeHtml(preview)+'</div>'+
+      '<div class="tiny muted">'+escapeHtml(x.channel||'')+' · '+lv+' · '+fmtDate(x.createdAt)+'</div></div>'+
+      '<button class="btn btnDanger btnInline" onclick="event.stopPropagation();requestDeleteRecord(\''+x.id+'\')">✕</button></div>';
+  }).join('');
+}
+function viewRecord(id){
+  const rec=getHistory().filter(function(x){return x.id===id;})[0];
+  if(!rec) return;
+  latestResult=rec; renderResult(rec); goScreen('result');
+}
+
+/* ============ confirm sheet ============ */
+let confirmAction=null;
+function openConfirm(title,text,onOk){
+  document.getElementById('confirm-title').textContent=title;
+  document.getElementById('confirm-text').textContent=text;
+  confirmAction=onOk;
+  document.getElementById('confirm-overlay').classList.add('show');
+}
+function closeConfirm(){ document.getElementById('confirm-overlay').classList.remove('show'); confirmAction=null; }
+document.getElementById('confirm-ok').addEventListener('click',function(){ const a=confirmAction; closeConfirm(); if(a) a(); });
+
+let deleteTarget=null;
+function requestDeleteRecord(id){ deleteTarget=id; openConfirm('Delete this record?','This scan will be removed from your history. This cannot be undone.',function(){ doDeleteRecord(); }); }
+function doDeleteRecord(){ if(!deleteTarget) return; saveHistory(getHistory().filter(function(x){return x.id!==deleteTarget;})); deleteTarget=null; renderHistory(); updateStats(); drawTrend(); showToast('Record deleted','ok'); }
+function requestClearHistory(){ openConfirm('Clear all history?','All saved scans will be permanently deleted.',function(){ saveHistory([]); renderHistory(); updateStats(); drawTrend(); showToast('History cleared','ok'); }); }
+
+/* ============ result render ============ */
+function toggleBreakdown(){
+  const p=document.getElementById('res-breakdown-panel');
+  const open=!p.classList.contains('open');
+  p.classList.toggle('open',open);
+  document.getElementById('res-breakdown-toggle').textContent=(open?'Hide':'Show')+' score breakdown '+(open?'▴':'▾');
+}
+function setBreakdownClosed(){
+  const p=document.getElementById('res-breakdown-panel'); if(p) p.classList.remove('open');
+  const t=document.getElementById('res-breakdown-toggle'); if(t) t.textContent='Show score breakdown ▾';
+}
+function syncResultOnOpen(){ if(latestResult) renderResult(latestResult); else renderEmptyResult(); }
+
+function renderEmptyResult(){
+  setBreakdownClosed();
+  document.getElementById('res-badge').className='badge badge-low';
+  document.getElementById('res-badge').textContent='NO SCAN YET';
+  document.getElementById('res-score').textContent='—/100';
+  document.getElementById('res-score-bar').style.width='0%';
+  document.getElementById('res-title').textContent='No scan result yet';
+  document.getElementById('res-meta').textContent='—';
+  document.getElementById('res-original').textContent='Start a new scan to see the message and the reasons behind the score.';
+  document.getElementById('res-breakdown-card').style.display='none';
+  document.getElementById('res-reasons').innerHTML='';
+  document.getElementById('res-advice').innerHTML='';
+}
+function renderResult(r){
+  const badge=document.getElementById('res-badge');
+  const colors={HIGH:'var(--risk-high)',MEDIUM:'var(--risk-med)',LOW:'var(--risk-low)'};
+  badge.className='badge '+(r.level==='HIGH'?'badge-high':(r.level==='MEDIUM'?'badge-med':'badge-low'));
+  badge.textContent=r.level+' RISK';
+  document.getElementById('res-score').textContent=r.score+'/100';
+  const fill=document.getElementById('res-score-bar');
+  fill.style.width=r.score+'%'; fill.style.background=colors[r.level];
+  const titles={HIGH:'High risk — likely a scam',MEDIUM:'Be careful — some red flags',LOW:'Low risk — no major red flags'};
+  document.getElementById('res-title').textContent=titles[r.level]||'Result';
+  document.getElementById('res-meta').textContent=(r.channel||'')+' · '+fmtDate(r.createdAt);
+  document.getElementById('res-original').textContent=r.text||'';
+
+  const card=document.getElementById('res-breakdown-card');
+  card.style.display='block';
+  document.getElementById('res-breakdown').innerHTML=(r.breakdown||[]).map(function(b){
+    const val=b.pts>0?('+'+b.pts+' pts'):(b.miss?'0 pts':'—');
+    const col=b.pts>0?'#fca5a5':(b.miss?'#7c8aa1':'#a7f3d0');
+    return '<div class="bdRow"><span class="soft">'+escapeHtml(b.label)+'</span><span style="color:'+col+';font-weight:700">'+val+'</span></div>';
+  }).join('');
+
+  const reasons=(r.hits&&r.hits.length)?r.hits:['No strong scam indicators were detected in this content.'];
+  const isHit=function(s){ return !(s.indexOf('No strong')===0||s.indexOf('Format looks normal')===0||s.indexOf('No high-risk')===0); };
+  document.getElementById('res-reasons').innerHTML=reasons.map(function(s){
+    const hit=isHit(s);
+    return '<div class="reason"><span class="rIcon '+(hit?'rHit':'rOk')+'">'+(hit?'!':'✓')+'</span><span class="small soft">'+escapeHtml(s)+'</span></div>';
+  }).join('');
+
+  let advice='';
+  if(r.level==='HIGH'){
+    advice='<div class="card" style="margin:0;background:rgba(239,68,68,.08);border-color:rgba(239,68,68,.3)"><span class="sectionTag" style="color:#fca5a5">What to do now</span>'+
+      '<ul class="small soft" style="margin:8px 0 0;padding-left:18px">'+
+      '<li>Do <b>not</b> click the link or call any number in the message.</li>'+
+      '<li>Never share OTPs, passwords or your full HKID.</li>'+
+      '<li>Verify through the official app or hotline you look up yourself.</li>'+
+      '<li>Report to ADCC (18222) if you already responded.</li></ul></div>';
+  } else if(r.level==='MEDIUM'){
+    advice='<div class="card" style="margin:0;background:rgba(245,158,11,.08);border-color:rgba(245,158,11,.3)"><span class="sectionTag" style="color:#fcd34d">Be cautious</span>'+
+      '<p class="small soft" style="margin:8px 0 0">Some warning signs are present. Double-check the sender through an official channel before acting, and never share codes.</p></div>';
+  } else {
+    advice='<div class="card" style="margin:0;background:rgba(16,185,129,.08);border-color:rgba(16,185,129,.3)"><span class="sectionTag" style="color:#a7f3d0">Looks okay — stay alert</span>'+
+      '<p class="small soft" style="margin:8px 0 0">No major red flags detected. This does not guarantee safety — if anything feels off, verify before clicking.</p></div>';
+  }
+  document.getElementById('res-advice').innerHTML=advice;
+  setBreakdownClosed();
+}
+
+/* ============ stats + trend ============ */
+function updateStats(){
+  const list=getHistory();
+  const total=list.length;
+  const high=list.filter(function(x){return x.level==='HIGH';}).length;
+  const med=list.filter(function(x){return x.level==='MEDIUM';}).length;
+  const low=list.filter(function(x){return x.level==='LOW';}).length;
+  document.getElementById('stat-total').textContent=total;
+  document.getElementById('stat-high').textContent=high;
+  const pct=function(n){ return total? Math.round(n/total*100):0; };
+  document.getElementById('bar-high').style.width=(total?pct(high):0)+'%';
+  document.getElementById('bar-med').style.width=(total?pct(med):0)+'%';
+  document.getElementById('bar-low').style.width=(total?pct(low):100)+'%';
+  document.getElementById('legend-high').textContent='High: '+high+' ('+pct(high)+'%)';
+  document.getElementById('legend-med').textContent='Med: '+med+' ('+pct(med)+'%)';
+  document.getElementById('legend-low').textContent='Low: '+low+' ('+pct(low)+'%)';
+  document.getElementById('risk-summary').textContent= total? (total+' scans') : 'No scans yet';
+}
+function drawTrend(){
+  const cv=document.getElementById('trend'); if(!cv) return;
+  const dpr=window.devicePixelRatio||1;
+  const w=cv.clientWidth||320, h=86;
+  cv.width=w*dpr; cv.height=h*dpr;
+  const ctx=cv.getContext('2d'); if(!ctx) return;
+  ctx.setTransform(dpr,0,0,dpr,0,0);
+  ctx.clearRect(0,0,w,h);
+  const days=[]; const now=new Date();
+  for(let i=6;i>=0;i--){ const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i); days.push(d); }
+  const list=getHistory();
+  const counts=days.map(function(d){
+    return list.filter(function(x){
+      const t=new Date(x.createdAt);
+      return t.getFullYear()===d.getFullYear()&&t.getMonth()===d.getMonth()&&t.getDate()===d.getDate();
+    }).length;
+  });
+  const max=Math.max(1,Math.max.apply(null,counts));
+  const pad=8, bw=(w-pad*2)/7;
+  ctx.strokeStyle='rgba(148,163,184,.18)'; ctx.beginPath(); ctx.moveTo(pad,h-18); ctx.lineTo(w-pad,h-18); ctx.stroke();
+  counts.forEach(function(c,i){
+    const bh=Math.max(2,(h-30)*(c/max));
+    const x=pad+i*bw+bw*0.18, y=h-18-bh, bwid=bw*0.64;
+    const grad=ctx.createLinearGradient(0,y,0,h-18);
+    grad.addColorStop(0,'#34d399'); grad.addColorStop(1,'rgba(5,150,105,.35)');
+    ctx.fillStyle=grad;
+    ctx.beginPath(); ctx.roundRect? ctx.roundRect(x,y,bwid,bh,4) : ctx.rect(x,y,bwid,bh); ctx.fill();
+    ctx.fillStyle='rgba(148,163,184,.8)'; ctx.font='9px sans-serif'; ctx.textAlign='center';
+    ctx.fillText((days[i].getMonth()+1)+'/'+days[i].getDate(), x+bwid/2, h-5);
+  });
+}
+window.addEventListener('resize',function(){ drawTrend(); });
+
+/* ============ utils ============ */
+function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
+function fmtDate(iso){ try{ const d=new Date(iso); if(isNaN(d.getTime())) return ''; return d.toLocaleDateString()+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }catch(e){return '';} }
+
+/* ============ init ============ */
+(function init(){
+  getUsers();
+  setAuthMode('signin');
+  renderOnboarding();
+  updateCharCounter();
+  setScanMode('text');
+  updateSessionLabel();
+  updateStats(); drawTrend();
+  renderEmptyResult();
+  const s=getSession();
+  if(s){
+    goScreen(safeGet(OB_KEY)?'home':'onboarding');
+  } else {
+    goScreen('login');
+  }
+})();
+</script>
+</body>
+</html>
