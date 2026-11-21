@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#070d19">
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 48 48'%3E%3Crect width='48' height='48' rx='10' fill='%23070d19'/%3E%3Cpath d='M24 8l12 5v9c0 9-5.3 14.3-12 17-6.7-2.7-12-8-12-17v-9l12-5z' fill='none' stroke='%2334d399' stroke-width='2.6'/%3E%3Cpath d='M18.5 24l4 4 7.5-8.2' fill='none' stroke='%23a7f3d0' stroke-width='2.8' stroke-linecap='round'/%3E%3C/svg%3E">
 <meta name="description" content="ScamLens — AI-assisted anti-scam assistant for Hong Kong mobile users.">
 <title>ScamLens — AI-Assisted Anti-Scam Assistant</title>
 <style>
@@ -107,6 +109,7 @@
   input:focus,textarea:focus,select:focus{border-color:var(--emerald-bright);box-shadow:0 0 0 3px rgba(16,185,129,.16)}
   textarea{resize:vertical;min-height:110px}
   label.fld{display:block;font-size:12px;color:var(--muted);margin:0 0 5px 2px;font-weight:600}
+  label.btn{position:relative;overflow:hidden}
   .seg{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;background:rgba(9,15,28,.9);padding:5px;border-radius:13px;border:1px solid var(--line-subtle)}
   .seg button{
     appearance:none;border:0;background:transparent;color:var(--muted);font-family:inherit;
@@ -256,7 +259,7 @@
         <div class="rowBetween" style="align-items:flex-start">
           <div><span class="sectionTag">Protection Hub</span><h2 class="h2">Security Summary</h2>
             <div class="tiny muted" id="session-status" style="margin-top:4px">Signed in</div></div>
-          <button class="btn btnGhost btnInline" onclick="goScreen('onboarding')">Guide</button>
+          <button class="btn btnGhost btnInline" onclick="obIndex=0;renderOnboarding();goScreen('onboarding')">Guide</button>
         </div>
         <div class="statGrid">
           <div class="statBox"><div class="tiny muted">Total checks</div><div class="statNum" id="stat-total">0</div></div>
@@ -331,12 +334,12 @@
 
         <div id="input-url-wrap" style="display:none">
           <label class="fld" for="scan-url">Suspicious link</label>
-          <input id="scan-url" type="url" inputmode="url" placeholder="http://example-verify.top/login">
+          <input id="scan-url" type="url" inputmode="url" aria-label="Suspicious link to check" placeholder="http://example-verify.top/login">
         </div>
 
         <div id="input-phone-wrap" style="display:none">
           <label class="fld" for="scan-phone">Caller / sender number</label>
-          <input id="scan-phone" type="tel" inputmode="tel" placeholder="+852 1234 5678">
+          <input id="scan-phone" type="tel" inputmode="tel" aria-label="Phone number to check" placeholder="+852 1234 5678">
           <p class="tiny muted mt6" style="margin-bottom:0">Demo lookup against a small sample of reported patterns.</p>
         </div>
 
@@ -418,7 +421,7 @@
       <div class="card stack gap10">
         <div class="rowBetween"><span class="sectionTag">Scan history</span>
           <button class="btn btnDanger btnInline" id="btn-clear-all" onclick="requestClearHistory()">Clear all</button></div>
-        <input id="history-search" type="search" placeholder="Search message text or channel…" oninput="renderHistory()">
+        <input id="history-search" type="search" aria-label="Search scan history by message text or channel" placeholder="Search message text or channel…" oninput="renderHistory()">
         <div class="seg" role="tablist" aria-label="Filter">
           <button id="flt-ALL" class="on" onclick="setFilter('ALL')">All</button>
           <button id="flt-HIGH" onclick="setFilter('HIGH')">High</button>
@@ -501,6 +504,7 @@ function goScreen(name){
   if(name==='home'){ updateStats(); drawTrend(); }
   if(name==='history'){ renderHistory(); }
   if(name==='result'){ syncResultOnOpen(); }
+  if(name==='scan'){ hideScanAlert(); }
 }
 
 /* ============ auth ============ */
@@ -628,6 +632,7 @@ function handleScreenshot(input){
   document.getElementById('scan-input').value=demoOCRText;
   updateCharCounter();
   showToast('Screenshot loaded · text extracted (demo OCR)','ok');
+  try{ input.value=''; }catch(e){}
 }
 
 /* ============ presets ============ */
@@ -661,7 +666,10 @@ function urlRisk(raw){
   if(SHORTENERS.some(function(s){return host.indexOf(s)>=0;})) flags.push('Shortened link hides the real destination.');
   OFFICIAL.forEach(function(d){
     const brand=d.split('.')[0];
-    if(host.indexOf(brand)>=0 && host!==d && host.indexOf(d)<0) flags.push('Look-alike of the official domain "'+d+'".');
+    if(brand.length<3) return; // skip very short brands to avoid false positives
+    if(host===d || host.endsWith('.'+d) || host.indexOf('.'+d)>=0) return; // genuine subdomain of the official domain
+    const brandRe=new RegExp('(^|[.-])'+brand+'([.-]|$)');
+    if(brandRe.test(host)) flags.push('Look-alike of the official domain "'+d+'".');
   });
   if(host.split('-').length>=3) flags.push('Domain contains many hyphens — typical of phishing hostnames.');
   if(/\d{2,}/.test(host)) flags.push('Domain contains number sequences often seen in fake domains.');
@@ -686,23 +694,67 @@ function phoneRisk(raw){
 /* ============ text analysis ============ */
 function analyzeText(text){
   const t=(text||'').toLowerCase();
-  let score=10; const reasons=[]; const bd=[]; const hits=[];
-  function add(pts,label,note){ if(pts>0){ score+=pts; bd.push({label:label,pts:pts}); hits.push(label); } else { bd.push({label:label,pts:0,miss:true}); } }
+  const raw=text||'';
+  let score=10; const bd=[]; const hits=[];
+  let hitCount=0;
+  function add(pts,label){
+    if(pts>0){ score+=pts; hitCount++; bd.push({label:label,pts:pts}); hits.push(label); }
+    else { bd.push({label:label,pts:0,miss:true}); }
+  }
 
-  const urlHit=/https?:\/\/|bit\.ly|tinyurl|\.top\b|\.xyz\b|\.club\b|[-.]verify|[-.]secure|[-.]pay/.test(t);
-  add(urlHit?32:0,'Suspicious URL / domain','+32');
+  /* 1. suspicious URL / domain */
+  const urlHit=/https?:\/\/\S+|bit\.ly|tinyurl|\.top\b|\.xyz\b|\.club\b|\.icu\b|\.buzz\b|[-.](verify|secure|pay|login|update|account)\b/.test(t);
+  add(urlHit?32:0,'Suspicious URL / domain');
 
-  const urgency=/urgent|immediately|within \d+ hours?|suspended|locked|last warning|final notice|expire/.test(t)||/(立即|馬上|限时|限時|逾時|过期|過期|停用|冻结|凍結|24小時|12小時)/.test(text);
-  add(urgency?20:0,'High-pressure urgency','+20');
+  /* 2. urgency — EN + Chinese (traditional & simplified) */
+  const urgency=/urgent|immediately|within \d+ (hours?|mins?)|last warning|final notice|act now|expire/.test(t)
+    ||/(立即|馬上|马上|限时|限時|即刻|逾時|逾期|过期|過期|停用|凍結|冻结|封鎖|封锁|24小時|48小時|12小時|24小时|48小时|12小时|今天內|今日內|最後通知|最后通知|盡快|尽快|急需|周轉|周转)/.test(raw);
+  add(urgency?20:0,'High-pressure urgency');
 
-  const cred=/otp|one[- ]?time|hkid|password|pin\b|credit card|cvv|security code|verify your account|fps|transfer|pay hk\$|手续费|手續費|驗證碼|验证码|動態密碼|动态密码|密碼|密码|轉帳|转账|匯款|汇款|身份證|身份证/.test(t);
-  add(cred?24:0,'Credential / payment request','+24');
+  /* 3. credential / payment request */
+  const cred=/otp|one[- ]?time (code|password)|hkid|password|\bpin\b|credit card|cvv|security code|verify your account|\bfps\b|pay hk\$|urgent transfer/.test(t)
+    ||/(手續費|手续费|驗證碼|验证码|一次性密碼|一次性密码|動態密碼|动态密码|密碼|密码|轉帳|转账|匯款|汇款|匯入|汇入|身份證|身份证|信用卡|銀行卡|银行卡|提款|入賬|入账|(轉|转)\s*(HK)?\$\s*\d)/.test(raw);
+  add(cred?24:0,'Credential / payment request');
 
-  const cjk=/(順豐|顺丰|郵政|邮政|匯豐|汇丰|恒生|中銀|中银|海關|海关|入境處|入境处|警務處|警务处|稅務局|税务局|快遞|快递|包裹|退款|中獎|中奖|刷單|刷单|兼職|兼职|投資群|投资群|穩賺|稳赚|加我|私聊|點擊|点击|連結|链接)/.test(text);
-  add(cjk?26:0,'Chinese-language scam wording','+26');
+  /* 4. Chinese scam wording */
+  const cjk=/(順豐|顺丰|郵政|邮政|DHL|FedEx|匯豐|汇丰|恒生|中銀|中银|渣打|海關|海关|入境處|入境处|警務處|警务处|稅務局|税务局|衛生署|卫生署|快遞|快递|包裹|退款|退貨|退货|中獎|中奖|刷單|刷单|兼職|兼职|投資群|投资群|穩賺|稳赚|保證金|保证金|加我|私聊|點擊|点击|連結|链接|查詢|查询|認證|认证|補交|补交)/.test(raw);
+  add(cjk?26:0,'Chinese-language scam wording');
 
-  const brand=/sf express|hsbc|hang seng|boc\b|gov\b|police|customs|ird\b|immigration|順豐|匯豐|恒生|入境處|海關/.test(t);
-  add(brand?12:0,'Brand / institution impersonation','+12');
+  /* 5. job / investment scam (works WITHOUT a link) */
+  const jobScam=/(刷單|刷单|兼職|兼职|問卷|问卷|打字員|打字员|客服招聘|日賺|日赚|日結|日结|墊付|垫付|回本|帶單|带单|投資|投资|炒股|導師|导师|穩賺|稳赚|包賺|包赚|無風險|无风险|返現|返现)/.test(raw);
+  add(jobScam?28:0,'Job / investment scam pattern');
+
+  /* 6. prize / lottery scam */
+  const prizeScam=/(中獎|中奖|抽中|得獎|得奖|領獎|领奖|獎金|奖金|恭喜您|恭喜你|免費領取|免费领取|限時領取|限时领取|大獎|大奖)/.test(raw);
+  add(prizeScam?30:0,'Prize / lottery scam pattern');
+
+  /* 7. family / friend impersonation ("guess who I am") */
+  const familyScam=/(猜猜我是誰|猜猜我是谁|(換|换)(了|左|咗)(電話|电话|手机|手機|號碼|号码)|这是我的新号码|这是我的新號碼|不方便(講|讲)電話|不方便(講|讲)电话|幫我轉|帮我转|入錢|入钱|借錢|借钱|救命錢|救命钱|應急|应急)/.test(raw);
+  add(familyScam?26:0,'Family / friend impersonation');
+
+  /* 8. account-threat phishing (EN + CN) */
+  const acctThreat=/account (is |will be |has been )?(locked|suspended|closed|limited|blocked)|unusual (log-?in|activity)|suspicious (log-?in|activity)/.test(t)
+    ||/(帳戶|账户)[^。\n]{0,6}(停用|凍結|冻结|關閉|关闭|異常|异常)/.test(raw);
+  add(acctThreat?18:0,'Account-threat phishing language');
+
+  /* 9. change-of-bank-details fraud */
+  const changeAcct=/(new account|updated (bank )?account|change (of )?(bank )?account)/.test(t)
+    ||/(新的?帳戶|新的?账户|更改(銀行)?帳戶|更改(银行)?账户|換(左)?銀行)/.test(raw);
+  add(changeAcct?14:0,'Change-of-account request');
+
+  /* 10. brand impersonation — only counts when other signals already exist */
+  const brand=/sf express|hsbc|hang seng|\bboc\b|\bsc\b|police|customs|\bird\b|immigration/.test(t)
+    ||/(順豐|顺丰|匯豐|汇丰|恒生|入境處|海關|海关|稅務局|卫生署|衛生署)/.test(raw);
+  if(brand && score>=30){ add(12,'Brand / institution impersonation'); }
+  else { bd.push({label:'Brand / institution impersonation',pts:0,miss:true}); }
+
+  /* 11. reassurance phrase typical of LEGIT senders -> reduce */
+  const reassure=/no action (is )?(needed|required)|do not (reply|click|share)|never (ask|share) (for )?(your )?(otp|password)/.test(t)
+    ||/(無需(行動|理會|行动|理会)|請勿(回覆|點擊)|请勿(回复|点击)|不會(要求|索取)|不会(要求|索取))/.test(raw);
+  if(reassure){ score-=15; bd.push({label:'Reassurance phrase (legit sender)',pts:-15}); }
+
+  /* 12. synergy: several independent signals amplify risk */
+  if(hitCount>=2){ const bonus=(hitCount>=3?14:8); score+=bonus; bd.push({label:'Multiple independent signals',pts:bonus}); }
 
   score=Math.max(5,Math.min(score,98));
   const level=score>=70?'HIGH':(score>=40?'MEDIUM':'LOW');
@@ -720,7 +772,8 @@ function runAnalysis(){
   else { payload=(document.getElementById('scan-input').value||'').trim(); }
 
   if(!payload){ showScanAlert('Please enter something to analyse first.','error'); return; }
-  if(scanMode==='text' && payload.length<5){ showScanAlert('That is very short — results may be limited. Add more of the message.','warn'); return; }
+  const minLen = scanMode==='text' ? 3 : 2;
+  if(payload.length<minLen){ showScanAlert('Too short to analyse meaningfully — add a little more.','error'); return; }
   if(scanMode==='text' && payload.length>500){ showScanAlert('Message too long (max 500 characters).','error'); return; }
 
   startScan(payload,channel,scanMode);
@@ -741,11 +794,23 @@ function startScan(payload,channel,mode){
     try{
       if(mode==='url'){
         const r=urlRisk(payload);
-        const score=Math.min(95, 20 + r.flags.length*18 + (/http:\/\//.test(payload)?15:0));
-        result={score:score,level:score>=70?'HIGH':(score>=40?'MEDIUM':'LOW'),breakdown:[{label:'Base score',pts:20},{label:'Domain risk flags',pts:r.flags.length*18},{label:'Plain HTTP penalty',pts:/http:\/\//.test(payload)?15:0}],hits:r.flags,text:payload,host:r.host};
+        if(r.flags.length===1 && r.flags[0].indexOf('Could not parse')===0){
+          if(btn) btn.disabled=false;
+          goScreen('scan'); showScanAlert('That does not look like a web address. Include something like https://example.com','error');
+          analysisTimer=null; return;
+        }
+        const penalty=/http:\/\//.test(payload)?15:0;
+        const flagPts=r.flags.length*18;
+        const score=Math.max(5,Math.min(95, 20 + flagPts + penalty));
+        const bd=[{label:'Base score',pts:20}];
+        if(flagPts>0) bd.push({label:'Domain risk flags ('+r.flags.length+')',pts:flagPts});
+        if(penalty>0) bd.push({label:'Unencrypted http:// penalty',pts:penalty});
+        result={score:score,level:score>=70?'HIGH':(score>=40?'MEDIUM':'LOW'),breakdown:bd,hits:r.flags,text:payload,host:r.host};
       } else if(mode==='phone'){
         const r=phoneRisk(payload);
-        result={score:r.score,level:r.level,breakdown:[{label:'Format check base',pts:10},{label:'Risk flags',pts:Math.max(0,r.score-10)}],hits:r.flags,text:payload};
+        const bd=[{label:'Format check base',pts:10}];
+        if(r.score-10>0) bd.push({label:'Number risk flags',pts:r.score-10});
+        result={score:r.score,level:r.level,breakdown:bd,hits:r.flags,text:payload};
       } else {
         const r=analyzeText(payload);
         result={score:r.score,level:r.level,breakdown:r.breakdown,hits:r.hits,text:payload};
@@ -788,8 +853,12 @@ function renderHistory(){
   if(currentFilter!=='ALL') list=list.filter(function(x){ return x.level===currentFilter; });
   if(q) list=list.filter(function(x){ return (x.text||'').toLowerCase().indexOf(q)>=0 || (x.channel||'').toLowerCase().indexOf(q)>=0; });
   if(!list.length){
-    wrap.innerHTML='<div class="empty"><div class="big">🗂️</div><div class="small">No scans yet.</div>'+
-      '<button class="btn btnGhost btnInline mt10" onclick="goScreen(\'scan\')">Run your first check</button></div>';
+    const hasAny=getHistory().length>0;
+    wrap.innerHTML='<div class="empty"><div class="big">'+(hasAny?'🔎':'🗂️')+'</div>'+
+      '<div class="small">'+(hasAny?'No scans match your filter.':'No scans yet.')+'</div>'+
+      (hasAny
+        ? '<button class="btn btnGhost btnInline mt10" onclick="setFilter(\'ALL\');document.getElementById(\'history-search\').value=\'\'">Clear filters</button>'
+        : '<button class="btn btnGhost btnInline mt10" onclick="goScreen(\'scan\')">Run your first check</button>')+'</div>';
     return;
   }
   const colors={HIGH:'#f87171',MEDIUM:'#fbbf24',LOW:'#34d399'};
@@ -823,8 +892,8 @@ document.getElementById('confirm-ok').addEventListener('click',function(){ const
 
 let deleteTarget=null;
 function requestDeleteRecord(id){ deleteTarget=id; openConfirm('Delete this record?','This scan will be removed from your history. This cannot be undone.',function(){ doDeleteRecord(); }); }
-function doDeleteRecord(){ if(!deleteTarget) return; saveHistory(getHistory().filter(function(x){return x.id!==deleteTarget;})); deleteTarget=null; renderHistory(); updateStats(); drawTrend(); showToast('Record deleted','ok'); }
-function requestClearHistory(){ openConfirm('Clear all history?','All saved scans will be permanently deleted.',function(){ saveHistory([]); renderHistory(); updateStats(); drawTrend(); showToast('History cleared','ok'); }); }
+function doDeleteRecord(){ if(!deleteTarget) return; if(latestResult && latestResult.id===deleteTarget){ latestResult=null; renderEmptyResult(); } saveHistory(getHistory().filter(function(x){return x.id!==deleteTarget;})); deleteTarget=null; renderHistory(); updateStats(); drawTrend(); showToast('Record deleted','ok'); }
+function requestClearHistory(){ openConfirm('Clear all history?','All saved scans will be permanently deleted.',function(){ latestResult=null; saveHistory([]); renderEmptyResult(); renderHistory(); updateStats(); drawTrend(); showToast('History cleared','ok'); }); }
 
 /* ============ result render ============ */
 function toggleBreakdown(){
@@ -850,7 +919,7 @@ function renderEmptyResult(){
   document.getElementById('res-original').textContent='Start a new scan to see the message and the reasons behind the score.';
   document.getElementById('res-breakdown-card').style.display='none';
   document.getElementById('res-reasons').innerHTML='';
-  document.getElementById('res-advice').innerHTML='';
+  document.getElementById('res-advice').innerHTML='<button class="btn btnWide" onclick="goScreen(\'scan\')">+ Start a scam check</button>';
 }
 function renderResult(r){
   const badge=document.getElementById('res-badge');
@@ -868,8 +937,11 @@ function renderResult(r){
   const card=document.getElementById('res-breakdown-card');
   card.style.display='block';
   document.getElementById('res-breakdown').innerHTML=(r.breakdown||[]).map(function(b){
-    const val=b.pts>0?('+'+b.pts+' pts'):(b.miss?'0 pts':'—');
-    const col=b.pts>0?'#fca5a5':(b.miss?'#7c8aa1':'#a7f3d0');
+    let val, col;
+    if(b.pts>0){ val='+'+b.pts+' pts'; col='#fca5a5'; }
+    else if(b.pts<0){ val=b.pts+' pts'; col='#a7f3d0'; }
+    else if(b.miss){ val='0 pts'; col='#7c8aa1'; }
+    else { val='0 pts'; col='#7c8aa1'; }
     return '<div class="bdRow"><span class="soft">'+escapeHtml(b.label)+'</span><span style="color:'+col+';font-weight:700">'+val+'</span></div>';
   }).join('');
 
