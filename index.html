@@ -70,6 +70,11 @@
   ::selection{background:rgba(16,185,129,.34);color:#fff}
   body{-webkit-tap-highlight-color:transparent}
   input,textarea{caret-color:var(--emerald-bright)}
+  /* hide the browser's built-in search clear (we use our own ✕ button) */
+  input[type="search"]::-webkit-search-cancel-button,
+  input[type="search"]::-webkit-search-decoration{-webkit-appearance:none;appearance:none;display:none}
+  input[type="search"]::-ms-clear,
+  input[type="search"]::-ms-reveal{display:none;width:0;height:0}
   input:-webkit-autofill,textarea:-webkit-autofill{-webkit-text-fill-color:#f8fafc;-webkit-box-shadow:0 0 0 1000px #0a1120 inset;transition:background-color 9999s ease-out}
   .screen{display:none;padding:16px;animation:fade .18s ease}
   .screen.active{display:block}
