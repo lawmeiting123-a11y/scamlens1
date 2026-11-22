@@ -692,36 +692,88 @@ function loadPreset(key){
 
 /* ============ URL risk ============ */
 const OFFICIAL=['hsbc.com.hk','hangseng.com','boc.com.hk','sc.com','sf-express.com','gov.hk','police.gov.hk','ird.gov.hk','customs.gov.hk','immd.gov.hk','hkma.gov.hk'];
-const SUSPICIOUS_TLD=['top','xyz','club','icu','buzz','cyou','shop','vip','live','online'];
+const SUSPICIOUS_TLD=['top','xyz','club','icu','buzz','cyou','shop','vip','live','online','cc','tk','ml','ga','cf','gq','work','click','link','fun','site','website','support','pw','wang','win','bid','stream','download','racing','party','review','science','date','faith','accountant','cricket','webcam','mom','loan'];
 const SHORTENERS=['bit.ly','tinyurl.com','t.co','goo.gl','is.gd','ow.ly','cutt.ly'];
+/* official domains for brands that scammers commonly imitate (incl. social / payment) */
+const BRAND_OFFICIAL=['whatsapp.com','wa.me','facebook.com','fb.com','messenger.com','m.me','instagram.com','telegram.org','t.me','telegram.me','alipay.com','alipay.hk','paypal.com','wechat.com','weixin.qq.com','line.me','apple.com'];
+function isOfficialHost(host){
+  var all=OFFICIAL.concat(BRAND_OFFICIAL);
+  for(var i=0;i<all.length;i++){var d=all[i]; if(host===d||host.endsWith('.'+d)) return true;}
+  return false;
+}
+function lev(a,b){var m=a.length,n=b.length;if(!m)return n;if(!n)return m;var prev=[];for(var j=0;j<=n;j++)prev[j]=j;for(var i=1;i<=m;i++){var cur=[i];for(var k=1;k<=n;k++){cur[k]=Math.min(prev[k]+1,cur[k-1]+1,prev[k-1]+(a[i-1]===b[k-1]?0:1));}prev=cur;}return prev[n];}
+function leetNorm(x){return (x||'').toLowerCase().replace(/0/g,'o').replace(/1/g,'l').replace(/3/g,'e').replace(/4/g,'a').replace(/5/g,'s').replace(/7/g,'t');}
+function brandHit(compact){
+  if(!compact) return '';
+  if(/whatsapp|whatsz|whatsb|whats|whcz|wsapp|wsap/.test(compact)) return 'WhatsApp';
+  if(/^w[hsatz]/.test(compact) && compact.indexOf('app')>=0) return 'WhatsApp';
+  if(/faceb|fbok|facebo/.test(compact)) return 'Facebook';
+  if(/[il]nstag|instagr/.test(compact)) return 'Instagram';
+  if(/telegr|teleram/.test(compact)) return 'Telegram';
+  if(/alipay|a1ipay|alipav/.test(compact)) return 'Alipay';
+  if(/paypal|paypa1|paypa/.test(compact)) return 'PayPal';
+  if(/wechat|weixin/.test(compact)) return 'WeChat';
+  return '';
+}
+function urlFlagPts(f){
+  if(/Impersonates|Look-alike/.test(f)) return 55;
+  if(/Shortened link/.test(f)) return 30;
+  if(/Low-reputation domain/.test(f)) return 24;
+  if(/account\/phishing action words/.test(f)) return 22;
+  if(/Not encrypted/.test(f)) return 18;
+  if(/many hyphens/.test(f)) return 18;
+  if(/number sequences/.test(f)) return 12;
+  return 15;
+}
 function urlRisk(raw){
   const flags=[]; let u=(raw||'').toLowerCase().trim();
-  let host='';
-  const m=u.match(/^https?:\/\/([^\/?#]+)/);
-  if(m) host=m[1]; else if(/^[a-z0-9.-]+\.[a-z]{2,}/.test(u)) host=u.split('/')[0];
+  let host='', path='';
+  const m=u.match(/^https?:\/\/([^\/?#]+)([\/?#].*)?$/);
+  if(m){ host=m[1]; path=m[2]||''; }
+  else if(/^[a-z0-9.-]+\.[a-z]{2,}/.test(u)){ host=u.split(/[\/?#]/)[0]; path=u.slice(host.length); }
   if(!host) return {flags:['Could not parse a web address from this input.'],host:''};
   if(u.indexOf('http://')===0) flags.push('Not encrypted (http://) — legitimate banks and government sites use https.');
   const tld=host.split('.').pop();
   if(SUSPICIOUS_TLD.indexOf(tld)>=0) flags.push('Low-reputation domain ending (.'+tld+') often used for disposable phishing sites.');
   if(SHORTENERS.some(function(s){return host.indexOf(s)>=0;})) flags.push('Shortened link hides the real destination.');
-  OFFICIAL.forEach(function(d){
-    const brand=d.split('.')[0];
-    if(brand.length<3) return; // skip very short brands to avoid false positives
-    if(host===d || host.endsWith('.'+d) || host.indexOf('.'+d)>=0) return; // genuine subdomain of the official domain
-    const brandRe=new RegExp('(^|[.-])'+brand+'([.-]|$)');
-    if(brandRe.test(host)) flags.push('Look-alike of the official domain "'+d+'".');
-  });
+  const official=isOfficialHost(host);
+  if(!official){
+    OFFICIAL.forEach(function(d){
+      const brand=d.split('.')[0];
+      if(brand.length<3) return;
+      if(host===d || host.endsWith('.'+d)) return;
+      const brandRe=new RegExp('(^|[.-])'+brand+'([.-]|$)');
+      if(brandRe.test(host)) flags.push('Look-alike of the official domain "'+d+'".');
+    });
+    /* brand impersonation across host labels AND path segments */
+    var segs=[];
+    host.split(/[.\-_]+/).forEach(function(t){if(t)segs.push(t);});
+    (path||'').split(/[\/\-_.?=&#]+/).forEach(function(t){if(t)segs.push(t);});
+    var hitBrand='';
+    for(var i=0;i<segs.length && !hitBrand;i++){
+      var comp=leetNorm(segs[i]).replace(/[^a-z]/g,'');
+      if(comp.length>=3){ var bh=brandHit(comp); if(bh) hitBrand=bh; }
+    }
+    if(!hitBrand){ var whole=leetNorm(host).replace(/[^a-z]/g,''); hitBrand=brandHit(whole); }
+    if(hitBrand) flags.push('Impersonates '+hitBrand+' in the link (not the official '+hitBrand+' domain).');
+    var hay=(host+' '+path);
+    if(/verify|verif|secure|login|signin|update|account|unlock|appeal|auth|confirm|validate|recover/.test(hay))
+      flags.push('Link contains account/phishing action words (verify, login, unlock, appeal …).');
+  }
   if(host.split('-').length>=3) flags.push('Domain contains many hyphens — typical of phishing hostnames.');
   if(/\d{2,}/.test(host)) flags.push('Domain contains number sequences often seen in fake domains.');
-  if(/verify|secure|login|update|account|pay|refund/.test(host)) flags.push('Domain uses urgency words like "verify", "secure" or "pay".');
   return {flags:flags,host:host};
 }
 
 /* ============ phone risk ============ */
 function phoneRisk(raw){
-  const v=(raw||'').replace(/[\s\-()]/g,''); const flags=[]; let score=10;
+  var v=(raw||'').replace(/[\s\-()]/g,'');
+  // normalise common Hong Kong international prefixes
+  if(/^00852\d{8}$/.test(v)) v='+852'+v.slice(5);
+  else if(/^852\d{8}$/.test(v)) v='+852'+v.slice(3);
+  var flags=[]; var score=10;
   if(!/^\+?\d{6,15}$/.test(v)) return {flags:['This does not look like a valid phone number.'],score:5,level:'LOW'};
-  const local=v.replace(/^\+852/,'');
+  var local=v.replace(/^\+852/,'');
   if(local.length!==8){ flags.push('A Hong Kong number should have 8 digits after +852.'); score+=15; }
   if(/^\+?0/.test(v)&&!/^\+852/.test(v)){ flags.push('Unusual international format for a local sender.'); score+=10; }
   if(/(\d)\1{4,}/.test(v)){ flags.push('Long repeated digits — uncommon for legitimate call centres.'); score+=20; }
@@ -871,9 +923,9 @@ function startScan(payload,channel,mode){
           analysisTimer=null; return;
         }
         const penalty=/http:\/\//.test(payload)?15:0;
-        const flagPts=r.flags.length*18;
-        const score=Math.max(5,Math.min(95, 20 + flagPts + penalty));
-        const bd=[{label:'Base score',pts:20}];
+        const flagPts=r.flags.reduce(function(a,f){return a+urlFlagPts(f);},0);
+        const score=Math.max(5,Math.min(98, 22 + flagPts + penalty));
+        const bd=[{label:'Base score',pts:22}];
         if(flagPts>0) bd.push({label:'Domain risk flags ('+r.flags.length+')',pts:flagPts});
         if(penalty>0) bd.push({label:'Unencrypted http:// penalty',pts:penalty});
         result={score:score,level:score>=70?'HIGH':(score>=40?'MEDIUM':'LOW'),breakdown:bd,hits:r.flags,text:payload,host:r.host};
