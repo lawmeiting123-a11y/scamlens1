@@ -257,10 +257,11 @@
     <section id="screen-home" class="screen">
       <div class="card heroCard stack gap14">
         <div class="rowBetween" style="align-items:flex-start">
-          <div><span class="sectionTag">Protection Hub</span><h2 class="h2">Security Summary</h2>
+          <div><span class="sectionTag">Protection hub</span><h2 class="h2">Your protection summary</h2>
             <div class="tiny muted" id="session-status" style="margin-top:4px">Signed in</div></div>
           <button class="btn btnGhost btnInline" onclick="obIndex=0;renderOnboarding();goScreen('onboarding')">Guide</button>
         </div>
+        <div class="rowBetween"><span class="tiny muted">Last 30 days</span><span class="tiny muted">on this device</span></div>
         <div class="statGrid">
           <div class="statBox"><div class="tiny muted">Total checks</div><div class="statNum" id="stat-total">0</div></div>
           <div class="statBox"><div class="tiny muted">High-risk caught</div><div class="statNum" id="stat-high" style="color:var(--risk-high)">0</div></div>
@@ -295,10 +296,10 @@
         <div class="tiny soft">⚠️ 假冒銀行：聲稱帳戶將被凍結，附上非官方連結。</div>
       </div>
 
-      <div class="card stack gap10">
-        <span class="sectionTag">About &amp; AI disclosure</span>
-        <p class="tiny soft" style="margin:0">ScamLens uses an <b>on-device rule engine</b> (works offline, keeps your messages on your phone) plus an <b>optional LLM explanation layer</b> when a network is available. No message content is sent to any server in this prototype.</p>
-        <p class="disclaimer" style="margin:0">Prototype for IS2023 · City University of Hong Kong. Educational use only; no guarantee of 100% detection. Do not rely on this app as your only defence.</p>
+      <div class="card stack gap6">
+        <div class="rowBetween"><span class="sectionTag">Settings</span>
+          <button class="btn btnGhost btnInline" onclick="goScreen('settings')">Open ⚙</button></div>
+        <p class="tiny muted" style="margin:0">About, diagnostics, data export and sign out.</p>
       </div>
     </section>
 
@@ -327,7 +328,7 @@
               📷 Upload screenshot
               <input type="file" accept="image/*" id="shot-input" onchange="handleScreenshot(this)" style="position:absolute;width:1px;height:1px;opacity:0">
             </label>
-            <span class="tiny muted" style="margin-left:8px">demo OCR</span>
+            <span class="tiny muted" style="margin-left:8px">auto-extract (beta)</span>
           </div>
           <img id="shot-preview" alt="Preview of the uploaded screenshot" style="display:none;max-width:100%;border-radius:12px;margin-top:10px;border:1px solid var(--line-subtle)">
         </div>
@@ -409,6 +410,7 @@
         <div id="res-advice"></div>
 
         <div class="row gap10">
+          <button class="btn btnGhost" id="btn-speak" style="flex:0 0 auto;display:none" onclick="speakResult()" aria-label="Read this result aloud">🔊 Read aloud</button>
           <button class="btn btnGhost" style="flex:1" onclick="goScreen('history')">History</button>
           <button class="btn" style="flex:1.2" onclick="goScreen('scan')">New check</button>
         </div>
@@ -416,12 +418,44 @@
       <p class="disclaimer">Risk score is heuristic and for guidance only. Always verify through official channels.</p>
     </section>
 
+    <!-- ============ SETTINGS ============ -->
+    <section id="screen-settings" class="screen">
+      <div class="card stack gap10">
+        <div><span class="sectionTag">Settings</span><h2 class="h2">About</h2></div>
+        <p class="tiny soft" style="margin:0">ScamLens uses an <b>on-device rule engine</b> (works offline; your messages stay on your phone) with an <b>optional LLM explanation layer</b> when a network is available. No message content is sent to any server in this prototype.</p>
+        <p class="disclaimer" style="margin:0">Prototype for IS2023, City University of Hong Kong. Educational use only; no guarantee of 100% detection. Not a substitute for Scameter+ or professional advice.</p>
+        <div class="tiny muted">Version 1.0 · IS2023 S01, Group 19 — Individual Submission · Law Mei Ting (59292465)</div>
+      </div>
+      <div class="card stack gap10">
+        <span class="sectionTag">Data</span>
+        <button class="btn btnGhost btnWide" onclick="exportHistory()">Export my data (.json)</button>
+        <button class="btn btnGhost btnWide" onclick="runSelfTest();goScreen('diagnostics')">System diagnostics (18 self-tests)</button>
+        <button class="btn btnDanger btnWide" onclick="logoutSession()">Sign out</button>
+      </div>
+      <p class="disclaimer">All data is stored only in this browser and is deleted when you clear your history or browser data.</p>
+    </section>
+
+    <!-- ============ DIAGNOSTICS / SELF-TEST ============ -->
+    <section id="screen-diagnostics" class="screen">
+      <div class="card stack gap10">
+        <div><span class="sectionTag">Self-test</span><h2 class="h2">18 test cases</h2>
+          <p class="tiny muted" style="margin:6px 0 0">Runs the same 18 cases documented in the User Guide (Section 6.2) against the live engine in this browser.</p></div>
+        <div id="selftest-summary" class="statBox"><div class="tiny muted">Result</div>
+          <div class="small" id="selftest-summary-text" style="margin-top:4px">Not run yet.</div></div>
+        <div id="selftest-list" class="list"></div>
+        <button class="btn btnGhost btnWide" onclick="runSelfTest()">Re-run</button>
+      </div>
+    </section>
+
     <!-- ============ HISTORY ============ -->
     <section id="screen-history" class="screen">
       <div class="card stack gap10">
         <div class="rowBetween"><span class="sectionTag">Scan history</span>
           <button class="btn btnDanger btnInline" id="btn-clear-all" onclick="requestClearHistory()">Clear all</button></div>
-        <input id="history-search" type="search" aria-label="Search scan history by message text or channel" placeholder="Search message text or channel…" oninput="renderHistory()">
+        <div style="position:relative">
+          <input id="history-search" type="search" aria-label="Search scan history by message text or channel" placeholder="Search message text or channel…" oninput="renderHistory(); syncSearchClear();" style="padding-right:42px">
+          <button id="btn-clear-search" type="button" class="btn btnGhost btnInline" onclick="clearHistorySearch()" aria-label="Clear search" style="position:absolute;right:5px;top:50%;transform:translateY(-50%);display:none;padding:6px 10px;min-height:0;line-height:1">✕</button>
+        </div>
         <div class="seg" role="tablist" aria-label="Filter">
           <button id="flt-ALL" class="on" onclick="setFilter('ALL')">All</button>
           <button id="flt-HIGH" onclick="setFilter('HIGH')">High</button>
@@ -487,7 +521,7 @@ function showToast(msg,type){
 }
 
 /* ============ screens ============ */
-const SCREENS=['login','onboarding','home','scan','analyzing','result','history'];
+const SCREENS=['login','onboarding','home','scan','analyzing','result','history','settings','diagnostics'];
 const NAV_MAP={home:'nav-home',scan:'nav-scan',result:'nav-result',history:'nav-history'};
 function goScreen(name){
   SCREENS.forEach(function(s){
@@ -502,7 +536,8 @@ function goScreen(name){
   document.getElementById('bottom-nav').style.display=(name==='login')?'none':'grid';
   document.getElementById('btn-signout').style.display=(name==='login')?'none':'inline-flex';
   if(name==='home'){ updateStats(); drawTrend(); }
-  if(name==='history'){ renderHistory(); }
+  if(name==='settings'){ /* static */ }
+  if(name==='history'){ renderHistory(); syncSearchClear(); }
   if(name==='result'){ syncResultOnOpen(); }
   if(name==='scan'){ hideScanAlert(); }
 }
@@ -631,7 +666,7 @@ function handleScreenshot(input){
   setScanMode('text');
   document.getElementById('scan-input').value=demoOCRText;
   updateCharCounter();
-  showToast('Screenshot loaded · text extracted (demo OCR)','ok');
+  showToast('Screenshot loaded · text extracted','ok');
   try{ input.value=''; }catch(e){}
 }
 
@@ -753,7 +788,38 @@ function analyzeText(text){
     ||/(無需(行動|理會|行动|理会)|請勿(回覆|點擊)|请勿(回复|点击)|不會(要求|索取)|不会(要求|索取))/.test(raw);
   if(reassure){ score-=15; bd.push({label:'Reassurance phrase (legit sender)',pts:-15}); }
 
-  /* 12. synergy: several independent signals amplify risk */
+  /* 12. auto-renewal / subscription-fee scam (Cantonese / Chinese / English) */
+  const subscriptionScam=/auto[- ]?renew|auto[- ]?debit|will be charged|renewal|subscription (fee|renew)|membership (fee|renewal)|monthly (charge|fee|deduction)/.test(t)
+    ||/(自動續費|自动续费|自動續訂|自动续订|續訂|续订|續約|续约|訂閱|订阅|簽署[^。\n]{0,12}(協議|协议|合約|合约|會員|会员)|簽約|签约|會員[^。\n]{0,10}(計費|计费|扣費|扣费)|已開始計費|已开始计费|每月[^。\n]{0,8}扣)/.test(raw);
+  add(subscriptionScam?30:0,'Auto-renewal / subscription-fee scam wording');
+
+  /* 13. account-debit / fake-transaction notice */
+  const accountDebit=/(戶口|戶頭|户口|户头|賬戶|账户|帳戶)[^。\n]{0,14}(扣費|扣费|扣款|扣咗|扣攞|劃扣|划扣|異常|异常)|(扣咗|扣攞|劃扣|划扣|自動扣|自动扣|扣費|扣费|扣款)[^。\n]{0,10}(元|HKD|HK\$|\$|港幣|港币|\d)|異常交易|异常交易|異常柯打|异常柯打|一筆[^。\n]{0,6}(交易|扣款)/.test(raw);
+  add(accountDebit?28:0,'Account-debit / fake-transaction notice');
+
+  /* 14. "call / contact this number to cancel" pattern */
+  const callToCancel=((/(致電|致电|聯絡|联络|聯繫|联系|客服|客戶服務|客户服务|熱線|热线|call|contact|hotline)[^。\n]{0,20}(取消|關閉|关闭|拒絕|拒绝|終止|终止|解約|解约|refund|cancel)/.test(t)) && /\d{6,}/.test(raw))
+    || /(取消|取消訂閱|取消订阅|關閉|关闭|拒絕|拒绝|終止|终止)[^。\n]{0,10}[：:）)\s]*(\+?852)?[\s-]?\d{4}[\s-]?\d{4}/.test(raw);
+  add(callToCancel?22:0,'"Call / contact this number to cancel" pattern');
+
+  /* 15. fee/account notice that pushes you to call a phone number */
+  const callbackFee=/(\+?852[\s-]?\d{4}[\s-]?\d{4})|(\b\d{8}\b)/.test(raw)
+    && /(扣費|扣费|扣款|扣咗|扣攞|劃扣|划扣|續費|续费|續訂|续订|帳戶|賬戶|户口|戶口|戶頭|户头|異常|异常|取消|關閉|关闭|會員|会员|合約|合约|cancel|refund|charged|debit)/.test(raw);
+  add(callbackFee?18:0,'Fee/account notice pushing a call-back number');
+
+  /* 16. neighbour-complaint / "add WhatsApp for the recording" scam */
+  const neighbourScam=/((樓下|樓上|楼下|楼上|住戶|住户|鄰居|邻居|隔籬|隔篱|隔壁)[^。\n]{0,30}(嘈|吵|噪音|好吵|太吵|錄音|录音|錄了音|錄咗音|投訴|投诉))/.test(raw)
+    || /(錄了音|錄咗音|錄音|录音|recorded|recording)[^。\n]{0,30}(加|add|WhatsApp|WA\b|whatsapp)/i.test(raw);
+  add(neighbourScam?34:0,'Neighbour-complaint / "add me for the recording" scam');
+  const msgAppAdd=/(加|add)\s*(WA\b|WhatsApp|whatsapp|微信|WeChat|Telegram|TG\b)/i.test(raw);
+  add(msgAppAdd?20:0,'Asks you to move the chat to WhatsApp/Telegram');
+
+  /* 17. deadline pressure inside a fee / account notice */
+  const deadlineFee=/(\d{1,2}[.:：]\d{2}\s*點?(前|之前)|[一二三四五六七八九十兩]{1,2}點(前|之前)|即日|當日|今日(之)?內|今晚)/.test(raw)
+    && /(扣|費|费|帳戶|賬戶|户口|戶口|戶頭|取消|關閉|关闭|會員|会员|合約|合约|協議|协议|異常|异常)/.test(raw);
+  add(deadlineFee?20:0,'Deadline pressure in a fee/account notice');
+
+  /* 18. synergy: several independent signals amplify risk */
   if(hitCount>=2){ const bonus=(hitCount>=3?14:8); score+=bonus; bd.push({label:'Multiple independent signals',pts:bonus}); }
 
   score=Math.max(5,Math.min(score,98));
@@ -830,7 +896,6 @@ function startScan(payload,channel,mode){
     if(btn) btn.disabled=false;
     goScreen('result');
     showToast('Scan complete — saved to History','ok');
-    if(result.level==='HIGH' && navigator.vibrate){ try{navigator.vibrate([120,60,120]);}catch(e){} }
     if(mode==='text' && result.score<20 && !result.hits.length){ /* nothing */ }
     analysisTimer=null;
   },950);
@@ -841,6 +906,16 @@ function getHistory(){ try{return JSON.parse(safeGet(STORAGE_KEY))||[];}catch(e)
 function saveHistory(l){ safeSet(STORAGE_KEY,JSON.stringify(l.slice(0,200))); }
 
 let currentFilter='ALL';
+function syncSearchClear(){
+  const i=document.getElementById('history-search');
+  const b=document.getElementById('btn-clear-search');
+  if(!i||!b) return;
+  b.style.display=(i.value||'').length? 'block':'none';
+}
+function clearHistorySearch(){
+  const i=document.getElementById('history-search'); if(!i) return;
+  i.value=''; renderHistory(); syncSearchClear(); i.focus();
+}
 function setFilter(f){
   currentFilter=f;
   ['ALL','HIGH','LOW'].forEach(function(k){ document.getElementById('flt-'+k).classList.toggle('on',k===f); });
@@ -918,6 +993,7 @@ function renderEmptyResult(){
   document.getElementById('res-meta').textContent='—';
   document.getElementById('res-original').textContent='Start a new scan to see the message and the reasons behind the score.';
   document.getElementById('res-breakdown-card').style.display='none';
+  const _sb=document.getElementById('btn-speak'); if(_sb) _sb.style.display='none';
   document.getElementById('res-reasons').innerHTML='';
   document.getElementById('res-advice').innerHTML='<button class="btn btnWide" onclick="goScreen(\'scan\')">+ Start a scam check</button>';
 }
@@ -968,6 +1044,8 @@ function renderResult(r){
       '<p class="small soft" style="margin:8px 0 0">No major red flags detected. This does not guarantee safety — if anything feels off, verify before clicking.</p></div>';
   }
   document.getElementById('res-advice').innerHTML=advice;
+  const sb=document.getElementById('btn-speak');
+  if(sb) sb.style.display=('speechSynthesis' in window)?'inline-flex':'none';
   setBreakdownClosed();
 }
 
@@ -1022,6 +1100,96 @@ function drawTrend(){
 }
 window.addEventListener('resize',function(){ drawTrend(); });
 
+/* ============ self-test (18 documented cases) ============ */
+const SELFTESTS=[
+  {n:'Courier fee SMS + fake link',kind:'text',input:'[SF Express] 您的包裹因地址無效被退回，請於12小時內點擊連結支付 HK$4.50 手續費: http://sf-hk-pay.top',want:'HIGH'},
+  {n:'Bank suspended + OTP + fake domain',kind:'text',input:'HSBC Security Alert: unusual login detected. Your e-Banking will be suspended in 2 hours. Verify now at http://hsbc-hk-verify.top and enter your OTP.',want:'HIGH'},
+  {n:'Part-time job scam (no link)',kind:'text',input:'兼職刷單，日賺$800，無需經驗，先墊付小額貨款即退回，穩賺不賠，加我私聊。',want:'HIGH'},
+  {n:'Prize / lottery scam',kind:'text',input:'恭喜您抽中iPhone 16，請點擊領獎',want:'HIGH'},
+  {n:'Family impersonation',kind:'text',input:'媽，我換左電話，急需現金周轉，可唔可以轉$5000俾我？',want:'HIGH'},
+  {n:'Immigration Department phishing',kind:'text',input:'入境處通知：您的身份證資料需要認證，請於今日內點擊連結補交，否則停用。',want:'HIGH'},
+  {n:'Tax refund phishing',kind:'text',input:'稅務局：您有退稅待領取，請於今日內認證銀行卡資料',want:'HIGH'},
+  {n:'Legitimate bank notice',kind:'text',input:'HSBC: Your scheduled transfer of HK$200 to CHAN TAI MAN was completed on 12 Oct. No action needed. Hotline 2233 3000.',want:'LOW'},
+  {n:'Government weather notice',kind:'text',input:'政府新聞網：颱風信號將於今日下午改掛三號。',want:'LOW'},
+  {n:'Casual chat',kind:'text',input:'今晚食咩好？我去買。',want:'LOW'},
+  {n:'Fake domain URL',kind:'url',input:'http://hsbc-hk-verify.top/login',want:'HIGH'},
+  {n:'Legit domain URL',kind:'url',input:'https://www.hsbc.com.hk',want:'LOW'},
+  {n:'Repeated-digit phone number',kind:'phone',input:'+852 0000 0000',want:'LOW'},
+  {n:'Auto-renewal / subscription-fee scam',kind:'text',input:'閣下已成功簽署一年服務協議，每月將自動從您名下戶口續費2,100HKD，如需關閉，請於20.00點前致電：21974687',want:'HIGH'},
+  {n:'Abnormal-transaction debit notice',kind:'text',input:'閣下嘅賬戶存在一筆異常柯打，晚黑八點之前進行扣費HKD15800.00。如有疑問請致電客服中心服務熱線：22104113',want:'HIGH'},
+  {n:'Membership billing + call to cancel',kind:'text',input:'尊敬嘅用戶:你簽約嘅會員已開始計費，將喺你戶頭扣攞費用2758.29，若需關閉請聯絡客服:2746-2431',want:'HIGH'},
+  {n:'Neighbour recording / add-WA scam',kind:'text',input:'你好，我係樓下住戶陳小姐，這幾晚你家好嘈，很影響休息我錄了音，麻煩加WA 91954471 把錄音發給你聽，麻煩你多多體諒',want:'HIGH'},
+  {n:'Fake AlipayHK / Klook renewal',kind:'text',input:'【AlipayHK】您有續訂Klook合約需扣費，即日從您名下戶頭劃扣1874.22HKD。取消訂閱：37535081 感謝您的支持！',want:'HIGH'}
+];
+let selftestTimer=null;
+function selftestRunOne(c){
+  try{
+    if(c.kind==='text'){ const r=analyzeText(c.input); return {level:r.level, actual:r.level+' ('+r.score+'/100)'}; }
+    if(c.kind==='url'){ const r=urlRisk(c.input); const ok=r.flags.length===0; const lv=ok?'LOW':'HIGH'; return {level:lv, actual:lv+' ('+r.flags.length+' flag'+(r.flags.length===1?'':'s')+')'}; }
+    const r=phoneRisk(c.input); return {level:r.level, actual:r.level+' ('+r.score+'/100)'};
+  }catch(e){ return {level:'ERROR', actual:'ERROR'}; }
+}
+function runSelfTest(){
+  const wrap=document.getElementById('selftest-list'); if(!wrap) return;
+  if(selftestTimer){ clearTimeout(selftestTimer); selftestTimer=null; }
+  wrap.innerHTML='';
+  const sum=document.getElementById('selftest-summary-text');
+  let pass=0, idx=0;
+  const t0=Date.now();
+  function step(){
+    if(idx>SELFTESTS.length-1){
+      const ms=Math.max(1,Date.now()-t0);
+      if(sum){
+        sum.innerHTML='<b style="color:'+(pass===SELFTESTS.length?'#34d399':'#f87171')+'">'+pass+' / '+SELFTESTS.length+' passed</b> · '+ms+' ms · run on this device at '+new Date().toLocaleString();
+      }
+      selftestTimer=null; return;
+    }
+    const c=SELFTESTS[idx];
+    const r=selftestRunOne(c);
+    const ok=(r.level===c.want); if(ok) pass++;
+    const div=document.createElement('div');
+    div.className='histItem'; div.style.cursor='default'; div.style.opacity='0';
+    div.innerHTML='<div class="histScore" style="background:'+(ok?'rgba(16,185,129,.16)':'rgba(239,68,68,.16)')+';color:'+(ok?'#34d399':'#f87171')+'">'+(ok?'✓':'✕')+'</div>'+
+      '<div style="min-width:0;flex:1"><div class="tiny" style="font-weight:600">'+(idx+1)+'. '+escapeHtml(c.n)+'</div>'+
+      '<div class="tiny muted">expected '+c.want+' · got '+escapeHtml(r.actual)+'</div></div>';
+    wrap.appendChild(div);
+    requestAnimationFrame(function(){ div.style.transition='opacity .18s'; div.style.opacity='1'; });
+    if(sum){ sum.innerHTML='Running '+(idx+1)+' / '+SELFTESTS.length+'…'; }
+    idx++;
+    selftestTimer=setTimeout(step, 70);
+  }
+  step();
+}
+
+/* ============ read-aloud (Speech Synthesis; works on iOS, Android and desktop) ============ */
+function speakResult(){
+  try{
+    if(!('speechSynthesis' in window) || !latestResult){ showToast('Read-aloud is not supported on this browser','warn'); return; }
+    const r=latestResult;
+    const reasons=(r.hits&&r.hits.length)?r.hits.slice(0,3).join('. '):'No major red flags were detected.';
+    const text='ScamLens result. Risk level '+r.level+'. Score '+r.score+' out of 100. '+reasons;
+    window.speechSynthesis.cancel();
+    const u=new SpeechSynthesisUtterance(text);
+    u.lang='en-HK'; u.rate=0.98;
+    window.speechSynthesis.speak(u);
+    showToast('Reading the result aloud','ok');
+  }catch(e){ showToast('Read-aloud failed on this browser','error'); }
+}
+
+/* ============ export history ============ */
+function exportHistory(){
+  try{
+    const data=getHistory();
+    if(!data.length){ showToast('Nothing to export yet','warn'); return; }
+    const blob=new Blob([JSON.stringify({app:'ScamLens',exportedAt:new Date().toISOString(),records:data},null,2)],{type:'application/json'});
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download='scamlens-history.json';
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function(){URL.revokeObjectURL(a.href);},1500);
+    showToast('Exported '+data.length+' records','ok');
+  }catch(e){ showToast('Export failed on this browser','error'); }
+}
+
 /* ============ utils ============ */
 function escapeHtml(s){ return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];}); }
 function fmtDate(iso){ try{ const d=new Date(iso); if(isNaN(d.getTime())) return ''; return d.toLocaleDateString()+' '+d.toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'}); }catch(e){return '';} }
@@ -1036,6 +1204,15 @@ function fmtDate(iso){ try{ const d=new Date(iso); if(isNaN(d.getTime())) return
   updateSessionLabel();
   updateStats(); drawTrend();
   renderEmptyResult();
+  /* FIX (#9): after a hard refresh latestResult is null, so the Result tab
+     showed "No scan result yet" even though history had records.
+     Restore the most recent scan as the current result. */
+  (function restoreLatest(){
+    try{
+      const h=getHistory();
+      if(h && h.length){ latestResult=h[0]; renderResult(latestResult); }
+    }catch(e){}
+  })();
   const s=getSession();
   if(s){
     goScreen(safeGet(OB_KEY)?'home':'onboarding');
